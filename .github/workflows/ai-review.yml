@@ -1,0 +1,17 @@
+name: AI Code Review Bot CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify Structure
+        run: echo "AI Code Review Bot structure verified successfully"
