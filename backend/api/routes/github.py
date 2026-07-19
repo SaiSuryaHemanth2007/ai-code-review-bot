@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from backend.services.github_service import github_service
+from backend.services.review_service import review_service
 
 router = APIRouter()
 
@@ -19,3 +20,22 @@ async def repository_info():
 )
 async def list_pull_requests():
     return github_service.get_pull_requests()
+
+
+@router.get(
+    "/pulls/{pull_number}/files",
+    summary="Get Pull Request Files",
+)
+async def get_pull_request_files(pull_number: int):
+    return github_service.get_pull_request_files(pull_number)
+
+
+@router.post(
+    "/pulls/{pull_number}/review",
+    summary="Review Pull Request",
+)
+async def review_pull_request(pull_number: int):
+    return {
+        "pull_request": pull_number,
+        "review": review_service.review_pull_request(pull_number),
+    }

@@ -75,5 +75,35 @@ class GitHubService:
             logger.exception("Failed to fetch pull requests.")
             raise Exception(str(exc))
 
+    def get_pull_request_files(self, pull_number: int):
+        """Return the files changed in a pull request."""
+
+        try:
+            repo = self.get_repository()
+
+            pull = repo.get_pull(pull_number)
+
+            files = pull.get_files()
+
+            result = []
+
+            for file in files:
+                result.append(
+                    {
+                        "filename": file.filename,
+                        "status": file.status,
+                        "additions": file.additions,
+                        "deletions": file.deletions,
+                        "changes": file.changes,
+                        "patch": file.patch,
+                    }
+                )
+
+            return result
+
+        except GithubException as exc:
+            logger.exception("Failed to fetch pull request files.")
+            raise Exception(str(exc))
+
 
 github_service = GitHubService()
