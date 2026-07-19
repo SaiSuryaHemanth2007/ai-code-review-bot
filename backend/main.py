@@ -1,21 +1,37 @@
 from fastapi import FastAPI
 
-# Create the FastAPI application
+from backend.api.routes.review import router as review_router
+from backend.core.logger import logger
+from backend.core.settings import settings
+
 app = FastAPI(
-    title="AI Code Review Bot",
-    description="An AI-powered GitHub Pull Request Review Bot",
-    version="1.0.0"
+    title=settings.APP_NAME,
+    description="AI-powered GitHub Pull Request Review Bot",
+    version=settings.APP_VERSION,
 )
 
 
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Application started successfully.")
+
+
 @app.get("/")
-def root():
-    """
-    Health check endpoint.
-    Used to verify that the server is running.
-    """
+async def root():
+    logger.info("Root endpoint accessed.")
+
     return {
         "status": "success",
-        "message": "AI Code Review Bot is running!",
-        "version": "1.0.0"
+        "application": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "debug": settings.DEBUG,
     }
+
+
+from backend.core.constants import API_PREFIX
+
+app.include_router(
+    review_router,
+    prefix=API_PREFIX,
+    tags=["Code Review"],
+)
