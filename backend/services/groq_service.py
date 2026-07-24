@@ -9,6 +9,7 @@ from pathlib import Path
 
 from groq import Groq
 
+from backend.config.review_rules import REVIEW_RULES
 from backend.core.logger import logger
 from backend.core.settings import settings
 
@@ -30,13 +31,28 @@ class GroqService:
         logger.info("Generating AI review using Groq...")
         logger.info("Detected language: %s", language)
 
+        enabled_rules = []
+
+        for rule, enabled in REVIEW_RULES.items():
+            if enabled:
+                enabled_rules.append(
+                    rule.replace("_", " ").title()
+                )
+
+        rules_text = "\n".join(
+            f"- {rule}"
+            for rule in enabled_rules
+        )
+
         prompt = (
             self.review_prompt
             .replace("{language}", language)
+            .replace("{rules}", rules_text)
             .replace("{code}", code)
         )
 
         try:
+
             response = self.client.chat.completions.create(
                 model=settings.GROQ_MODEL,
                 messages=[

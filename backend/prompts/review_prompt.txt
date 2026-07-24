@@ -5,7 +5,10 @@ You are reviewing code from a GitHub Pull Request.
 Programming Language:
 {language}
 
-Review ONLY the code shown below.
+Review Categories:
+{rules}
+
+Review ONLY the categories listed above.
 
 Code:
 {code}
@@ -15,13 +18,11 @@ IMPORTANT RULES
 1. Review only the provided code.
 2. Do not invent issues.
 3. Do not suggest unnecessary improvements.
-4. Focus on correctness, security, performance, maintainability, and best practices.
-5. Ignore formatting-only differences.
-6. Ignore personal coding style preferences.
-7. Return ONLY valid JSON.
-8. Do NOT wrap the JSON inside Markdown.
-9. Do NOT use ```json.
-10. The response must be valid JSON.
+4. Ignore categories that are not listed.
+5. Return ONLY valid JSON.
+6. Do NOT wrap the JSON inside Markdown.
+7. Do NOT use ```json.
+8. The response must be valid JSON.
 
 Return exactly this schema:
 
