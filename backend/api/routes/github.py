@@ -1,9 +1,23 @@
 from fastapi import APIRouter
 
+from backend.core.settings import settings
 from backend.services.github_service import github_service
 from backend.services.review_service import review_service
 
 router = APIRouter()
+
+
+@router.get(
+    "/debug",
+    summary="Debug Environment",
+)
+async def debug():
+    return {
+        "github_token_exists": bool(settings.GITHUB_TOKEN),
+        "github_token_length": len(settings.GITHUB_TOKEN),
+        "github_owner": settings.GITHUB_OWNER,
+        "github_repository": settings.GITHUB_REPOSITORY,
+    }
 
 
 @router.get(
