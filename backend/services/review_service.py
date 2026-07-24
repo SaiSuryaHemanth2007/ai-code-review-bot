@@ -17,23 +17,52 @@ class ReviewService:
 
         files = github_service.get_pull_request_files(pull_number)
 
-        combined_diff = ""
+        all_summaries = []
+        all_issues = []
 
         for file in files:
-            combined_diff += f"\n\nFILE: {file['filename']}\n"
-            combined_diff += file.get("patch") or ""
 
-        logger.info("Sending pull request diff to Groq...")
+            filename = file["filename"]
+            patch = file.get("patch")
 
-        review = groq_service.review_code(
-            combined_diff,
-            "GitHub Pull Request",
+            if not patch:
+                logger.info(
+                    "Skipping %s (no patch available).",
+                    filename,
+                )
+                continue
+
+            logger.info("Reviewing file: %s", filename)
+
+            review = groq_service.review_code(
+                patch,
+                filename,
+            )
+
+            summary = review.get("summary")
+
+            if summary:
+                all_summaries.append(
+                    f"### {filename}\n{summary}"
+                )
+
+            issues = review.get("issues", [])
+
+            for issue in issues:
+
+                # Ensure the filename exists
+                if not issue.get("file"):
+                    issue["file"] = filename
+
+                all_issues.append(issue)
+
+        logger.info(
+            "Completed AI review of %s files.",
+            len(files),
         )
 
-        logger.info("AI review generated successfully.")
-
-        # Post inline review comments
-        for issue in review.get("issues", []):
+        # Post inline comments
+        for issue in all_issues:
 
             file_path = issue.get("file")
             line = issue.get("line")
@@ -47,6 +76,7 @@ class ReviewService:
                 continue
 
             try:
+
                 github_service.create_inline_review_comment(
                     pull_number=pull_number,
                     file_path=file_path,
@@ -61,6 +91,7 @@ class ReviewService:
                 )
 
             except Exception as exc:
+
                 logger.exception(
                     "Failed to post inline comment for %s:%s. Error: %s",
                     file_path,
@@ -68,13 +99,18 @@ class ReviewService:
                     exc,
                 )
 
-        # Post summary comment
+        summary_comment = "# 🤖 AI Code Review Report\n\n"
+
+        if all_summaries:
+            summary_comment += "\n\n".join(all_summaries)
+        else:
+            summary_comment += (
+                "No review summary generated."
+            )
+
         github_service.create_pull_request_comment(
             pull_number,
-            review.get(
-                "summary",
-                "AI review completed successfully.",
-            ),
+            summary_comment,
         )
 
         logger.info(
@@ -82,7 +118,10 @@ class ReviewService:
             pull_number,
         )
 
-        return review
+        return {
+            "summary": summary_comment,
+            "issues": all_issues,
+        }
 
 
 review_service = ReviewService()
