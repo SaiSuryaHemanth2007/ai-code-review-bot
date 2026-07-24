@@ -13,6 +13,11 @@ from backend.config.repository_context import REPOSITORY_CONTEXT
 from backend.config.review_rules import REVIEW_RULES
 from backend.core.logger import logger
 from backend.core.settings import settings
+from backend.utils.review_cache import (
+    generate_cache_key,
+    get_cached_review,
+    store_review,
+)
 
 
 class GroqService:
@@ -31,6 +36,15 @@ class GroqService:
 
         logger.info("Generating AI review using Groq...")
         logger.info("Detected language: %s", language)
+
+        # Check cache
+        cache_key = generate_cache_key(code, language)
+
+        cached_review = get_cached_review(cache_key)
+
+        if cached_review is not None:
+            logger.info("Using cached AI review.")
+            return cached_review
 
         enabled_rules = []
 
@@ -96,6 +110,12 @@ class GroqService:
             logger.info("Cleaned AI Response:\n%s", cleaned)
 
             review = json.loads(cleaned)
+
+            # Store review in cache
+            store_review(
+                cache_key,
+                review,
+            )
 
             logger.info("Successfully parsed AI JSON.")
 
