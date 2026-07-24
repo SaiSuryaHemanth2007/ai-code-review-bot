@@ -28,41 +28,13 @@ class GroqService:
         """
 
         logger.info("Generating AI review using Groq...")
+        logger.info("Detected language: %s", language)
 
-        prompt = f"""
-{self.review_prompt}
-
-IMPORTANT:
-
-Return ONLY valid JSON.
-
-Expected format:
-
-{{
-  "summary": "Overall review summary",
-  "issues": [
-    {{
-      "file": "",
-      "line": 1,
-      "severity": "LOW",
-      "comment": ""
-    }}
-  ]
-}}
-
-Rules:
-- Do NOT explain anything.
-- Do NOT wrap JSON inside markdown.
-- Do NOT use ```json.
-- Return ONLY JSON.
-- If no issues are found, return an empty issues array.
-
-Language:
-{language}
-
-Code:
-{code}
-"""
+        prompt = (
+            self.review_prompt
+            .replace("{language}", language)
+            .replace("{code}", code)
+        )
 
         try:
             response = self.client.chat.completions.create(
@@ -81,14 +53,19 @@ Code:
             logger.info("Groq response received.")
             logger.info("Original AI Response:\n%s", content)
 
-            cleaned = content
+            cleaned = content.strip()
 
-            # Remove Markdown code fences
-            cleaned = cleaned.replace("```json", "")
-            cleaned = cleaned.replace("```", "")
+            if cleaned.startswith("```json"):
+                cleaned = cleaned[7:]
+
+            if cleaned.startswith("```"):
+                cleaned = cleaned[3:]
+
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3]
+
             cleaned = cleaned.strip()
 
-            # Extract JSON object
             start = cleaned.find("{")
             end = cleaned.rfind("}")
 
@@ -104,6 +81,7 @@ Code:
             return review
 
         except json.JSONDecodeError:
+
             logger.exception("Failed to parse AI JSON.")
 
             return {
@@ -112,6 +90,7 @@ Code:
             }
 
         except Exception:
+
             logger.exception("Groq request failed.")
 
             return {
