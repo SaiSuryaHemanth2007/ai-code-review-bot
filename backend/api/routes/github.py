@@ -21,6 +21,19 @@ async def debug():
 
 
 @router.get(
+    "/whoami",
+    summary="GitHub Authentication Test",
+)
+async def github_whoami():
+    user = github_service.github.get_user()
+
+    return {
+        "login": user.login,
+        "id": user.id,
+    }
+
+
+@router.get(
     "/repository",
     summary="Repository Information",
 )
