@@ -6,152 +6,169 @@ from backend.services.groq_service import groq_service
 
 
 SUPPORTED_EXTENSIONS = {
-    ".py",
-    ".java",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".c",
-    ".cpp",
-    ".h",
-    ".hpp",
-    ".cs",
-    ".go",
-    ".rs",
-    ".php",
-    ".rb",
-    ".swift",
-    ".kt",
+    ".py", ".java", ".js", ".jsx", ".ts", ".tsx",
+    ".c", ".cpp", ".h", ".hpp", ".cs",
+    ".go", ".rs", ".php", ".rb", ".swift", ".kt",
+}
+
+LANGUAGE_MAP = {
+    ".py": "Python",
+    ".java": "Java",
+    ".js": "JavaScript",
+    ".jsx": "React JavaScript",
+    ".ts": "TypeScript",
+    ".tsx": "React TypeScript",
+    ".c": "C",
+    ".cpp": "C++",
+    ".h": "C Header",
+    ".hpp": "C++ Header",
+    ".cs": "C#",
+    ".go": "Go",
+    ".rs": "Rust",
+    ".php": "PHP",
+    ".rb": "Ruby",
+    ".swift": "Swift",
+    ".kt": "Kotlin",
 }
 
 
 class ReviewService:
-    """Coordinates the AI review process."""
 
     def review(self, code: str, language: str):
-        """Review a code snippet."""
         return groq_service.review_code(code, language)
 
     def review_pull_request(self, pull_number: int):
-        """Review an entire GitHub pull request."""
 
         logger.info("Starting AI review for PR #%s", pull_number)
 
         files = github_service.get_pull_request_files(pull_number)
 
-        all_summaries = []
-        all_issues = []
+        summaries = []
+        issues = []
+
+        files_reviewed = 0
+
+        severity_count = {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0,
+        }
 
         for file in files:
 
             filename = file["filename"]
             patch = file.get("patch")
 
-            # Skip unsupported file types
             _, extension = os.path.splitext(filename)
+            extension = extension.lower()
 
-            if extension.lower() not in SUPPORTED_EXTENSIONS:
-                logger.info(
-                    "Skipping %s (unsupported file type).",
-                    filename,
-                )
+            if extension not in SUPPORTED_EXTENSIONS:
+                logger.info("Skipping %s", filename)
                 continue
 
-            # Skip deleted/binary files
             if not patch:
-                logger.info(
-                    "Skipping %s (no patch available).",
-                    filename,
-                )
+                logger.info("Skipping %s (no patch)", filename)
                 continue
 
-            logger.info("Reviewing file: %s", filename)
+            files_reviewed += 1
+
+            language = LANGUAGE_MAP.get(extension, "Unknown")
 
             review = groq_service.review_code(
                 patch,
-                filename,
+                language,
             )
 
             summary = review.get("summary")
 
             if summary:
-                all_summaries.append(
-                    f"### {filename}\n{summary}"
+                summaries.append(
+                    f"## {filename}\n{summary}"
                 )
 
-            issues = review.get("issues", [])
-
-            for issue in issues:
+            for issue in review.get("issues", []):
 
                 if not issue.get("file"):
                     issue["file"] = filename
 
-                all_issues.append(issue)
+                severity = issue.get(
+                    "severity",
+                    "LOW",
+                ).upper()
 
-        logger.info(
-            "Completed AI review of %s files.",
-            len(all_summaries),
-        )
+                if severity in severity_count:
+                    severity_count[severity] += 1
 
-        # Post inline comments
-        for issue in all_issues:
+                issues.append(issue)
 
-            file_path = issue.get("file")
-            line = issue.get("line")
-            comment = issue.get("comment")
-
-            if not file_path or not line or not comment:
-                logger.warning(
-                    "Skipping invalid issue: %s",
-                    issue,
-                )
-                continue
+        # Inline comments
+        for issue in issues:
 
             try:
 
                 github_service.create_inline_review_comment(
                     pull_number=pull_number,
-                    file_path=file_path,
-                    line=line,
-                    comment=comment,
+                    file_path=issue["file"],
+                    line=issue["line"],
+                    comment=issue["comment"],
                 )
 
-                logger.info(
-                    "Posted inline comment to %s:%s",
-                    file_path,
-                    line,
-                )
-
-            except Exception as exc:
+            except Exception:
 
                 logger.exception(
-                    "Failed to post inline comment for %s:%s. Error: %s",
-                    file_path,
-                    line,
-                    exc,
+                    "Failed posting inline comment."
                 )
 
-        summary_comment = "# 🤖 AI Code Review Report\n\n"
+        total_issues = len(issues)
 
-        if all_summaries:
-            summary_comment += "\n\n".join(all_summaries)
+        if severity_count["CRITICAL"] > 0:
+            verdict = "❌ Changes Required"
+        elif severity_count["HIGH"] > 0:
+            verdict = "⚠️ Review Required"
         else:
-            summary_comment += "No supported source code files were found to review."
+            verdict = "✅ Looks Good"
+
+        report = f"""# 🤖 AI Code Review Report
+
+## 📊 Summary
+
+Files Reviewed: {files_reviewed}
+
+Issues Found: {total_issues}
+
+🔴 Critical: {severity_count['CRITICAL']}
+🟠 High: {severity_count['HIGH']}
+🟡 Medium: {severity_count['MEDIUM']}
+🔵 Low: {severity_count['LOW']}
+
+---
+
+## Overall Verdict
+
+{verdict}
+
+---
+
+## File Reviews
+
+"""
+
+        if summaries:
+            report += "\n\n".join(summaries)
+        else:
+            report += "No supported source files were reviewed."
 
         github_service.create_pull_request_comment(
             pull_number,
-            summary_comment,
+            report,
         )
 
-        logger.info(
-            "Completed AI review for PR #%s",
-            pull_number,
-        )
+        logger.info("Review completed.")
 
         return {
-            "summary": summary_comment,
-            "issues": all_issues,
+            "summary": report,
+            "issues": issues,
         }
 
 
