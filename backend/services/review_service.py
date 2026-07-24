@@ -212,7 +212,7 @@ Issues Found: {total_issues}
         else:
             report += "No supported source files were reviewed."
 
-        github_service.create_pull_request_comment(
+        github_service.upsert_pull_request_comment(
             pull_number,
             report,
         )

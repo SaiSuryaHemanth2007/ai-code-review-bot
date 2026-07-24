@@ -14,6 +14,8 @@ from backend.core.settings import settings
 class GitHubService:
     """Service for interacting with GitHub."""
 
+    AI_REVIEW_HEADER = "# 🤖 AI Code Review Report"
+
     def __init__(self):
         auth = Auth.Token(settings.GITHUB_TOKEN)
         self.github = Github(auth=auth)
@@ -111,27 +113,46 @@ class GitHubService:
             logger.exception("Failed to fetch pull request files.")
             raise Exception(str(exc))
 
-    def create_pull_request_comment(
+    def upsert_pull_request_comment(
         self,
         pull_number: int,
         comment: str,
     ):
-        """Post a summary comment on a GitHub pull request."""
+        """
+        Create or update the AI review comment.
+        """
 
         try:
             repo = self.get_repository()
 
             pull = repo.get_pull(pull_number)
 
+            comments = pull.get_issue_comments()
+
+            for existing_comment in comments:
+
+                if existing_comment.body.startswith(
+                    self.AI_REVIEW_HEADER
+                ):
+
+                    existing_comment.edit(comment)
+
+                    logger.info(
+                        "Updated existing AI review comment."
+                    )
+
+                    return
+
             pull.create_issue_comment(comment)
 
             logger.info(
-                "Successfully posted AI review to PR #%s",
-                pull_number,
+                "Created new AI review comment."
             )
 
         except GithubException as exc:
-            logger.exception("Failed to post PR comment.")
+            logger.exception(
+                "Failed to create/update PR comment."
+            )
             raise Exception(str(exc))
 
     def create_inline_review_comment(
@@ -142,11 +163,11 @@ class GitHubService:
         comment: str,
     ):
         """
-        Post an inline review comment on a changed line
-        in a pull request.
+        Post an inline review comment.
         """
 
         try:
+
             repo = self.get_repository()
 
             pull = repo.get_pull(pull_number)
@@ -170,9 +191,11 @@ class GitHubService:
             )
 
         except GithubException as exc:
+
             logger.exception(
-                "Failed to post inline review comment."
+                "Failed to post inline review."
             )
+
             raise Exception(str(exc))
 
 
