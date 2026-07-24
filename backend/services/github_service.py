@@ -4,7 +4,7 @@ GitHub service.
 Handles communication with the GitHub API.
 """
 
-from github import Github
+from github import Github, Auth
 from github.GithubException import GithubException
 
 from backend.core.logger import logger
@@ -15,7 +15,8 @@ class GitHubService:
     """Service for interacting with GitHub."""
 
     def __init__(self):
-        self.github = Github(settings.GITHUB_TOKEN)
+        auth = Auth.Token(settings.GITHUB_TOKEN)
+        self.github = Github(auth=auth)
 
     def get_repository(self):
         """Return the configured repository."""
@@ -41,7 +42,9 @@ class GitHubService:
                 "description": repo.description,
                 "default_branch": repo.default_branch,
                 "stars": repo.stargazers_count,
-                "open_pull_requests": repo.get_pulls(state="open").totalCount,
+                "open_pull_requests": repo.get_pulls(
+                    state="open"
+                ).totalCount,
             }
 
         except GithubException as exc:
@@ -96,6 +99,9 @@ class GitHubService:
                         "deletions": file.deletions,
                         "changes": file.changes,
                         "patch": file.patch,
+                        "blob_url": file.blob_url,
+                        "raw_url": file.raw_url,
+                        "contents_url": file.contents_url,
                     }
                 )
 
@@ -110,7 +116,7 @@ class GitHubService:
         pull_number: int,
         comment: str,
     ):
-        """Post a comment on a GitHub pull request."""
+        """Post a summary comment on a GitHub pull request."""
 
         try:
             repo = self.get_repository()
@@ -126,6 +132,47 @@ class GitHubService:
 
         except GithubException as exc:
             logger.exception("Failed to post PR comment.")
+            raise Exception(str(exc))
+
+    def create_inline_review_comment(
+        self,
+        pull_number: int,
+        file_path: str,
+        line: int,
+        comment: str,
+    ):
+        """
+        Post an inline review comment on a changed line
+        in a pull request.
+        """
+
+        try:
+            repo = self.get_repository()
+
+            pull = repo.get_pull(pull_number)
+
+            commits = list(pull.get_commits())
+
+            latest_commit = commits[-1]
+
+            pull.create_review_comment(
+                body=comment,
+                commit=latest_commit,
+                path=file_path,
+                line=line,
+                side="RIGHT",
+            )
+
+            logger.info(
+                "Successfully posted inline review to %s (line %s)",
+                file_path,
+                line,
+            )
+
+        except GithubException as exc:
+            logger.exception(
+                "Failed to post inline review comment."
+            )
             raise Exception(str(exc))
 
 
