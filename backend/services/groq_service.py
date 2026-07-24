@@ -69,7 +69,23 @@ Code:
         logger.info("Groq response received.")
 
         try:
-            return json.loads(content)
+            cleaned = content.strip()
+
+            # Remove Markdown code fences
+            cleaned = cleaned.replace("```json", "")
+            cleaned = cleaned.replace("```", "")
+            cleaned = cleaned.strip()
+
+            # Extract only the JSON object
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+
+            if start != -1 and end != -1:
+                cleaned = cleaned[start:end + 1]
+
+            logger.info("Cleaned AI JSON:\n%s", cleaned)
+
+            return json.loads(cleaned)
 
         except json.JSONDecodeError:
             logger.exception("Groq returned invalid JSON.")
