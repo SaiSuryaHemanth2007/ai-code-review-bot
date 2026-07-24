@@ -5,6 +5,7 @@ Handles communication with the Groq API.
 """
 
 import json
+import time
 from pathlib import Path
 
 from groq import Groq
@@ -20,6 +21,9 @@ from backend.utils.review_cache import (
 )
 
 
+MAX_RETRIES = 3
+
+
 class GroqService:
     """Service for interacting with the Groq API."""
 
@@ -27,7 +31,9 @@ class GroqService:
         self.client = Groq(api_key=settings.GROQ_API_KEY)
 
         prompt_path = Path("backend/prompts/review_prompt.txt")
-        self.review_prompt = prompt_path.read_text(encoding="utf-8")
+        self.review_prompt = prompt_path.read_text(
+            encoding="utf-8"
+        )
 
     def review_code(self, code: str, language: str) -> dict:
         """
@@ -70,23 +76,66 @@ class GroqService:
             .replace("{code}", code)
         )
 
-        try:
+        response = None
 
-            response = self.client.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
+        for attempt in range(MAX_RETRIES):
+
+            try:
+
+                logger.info(
+                    "Groq request attempt %s/%s",
+                    attempt + 1,
+                    MAX_RETRIES,
+                )
+
+                response = self.client.chat.completions.create(
+                    model=settings.GROQ_MODEL,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    temperature=0.2,
+                )
+
+                logger.info(
+                    "Groq request succeeded."
+                )
+
+                break
+
+            except Exception:
+
+                logger.exception(
+                    "Groq request failed."
+                )
+
+                if attempt == MAX_RETRIES - 1:
+
+                    return {
+                        "summary": "Failed to generate AI review after multiple attempts.",
+                        "issues": [],
                     }
-                ],
-                temperature=0.2,
-            )
+
+                wait_time = 2 ** attempt
+
+                logger.info(
+                    "Retrying in %s seconds...",
+                    wait_time,
+                )
+
+                time.sleep(wait_time)
+
+        try:
 
             content = response.choices[0].message.content.strip()
 
             logger.info("Groq response received.")
-            logger.info("Original AI Response:\n%s", content)
+            logger.info(
+                "Original AI Response:\n%s",
+                content,
+            )
 
             cleaned = content.strip()
 
@@ -107,23 +156,30 @@ class GroqService:
             if start != -1 and end != -1:
                 cleaned = cleaned[start:end + 1]
 
-            logger.info("Cleaned AI Response:\n%s", cleaned)
+            logger.info(
+                "Cleaned AI Response:\n%s",
+                cleaned,
+            )
 
             review = json.loads(cleaned)
 
-            # Store review in cache
+            # Store successful review in cache
             store_review(
                 cache_key,
                 review,
             )
 
-            logger.info("Successfully parsed AI JSON.")
+            logger.info(
+                "Successfully parsed AI JSON."
+            )
 
             return review
 
         except json.JSONDecodeError:
 
-            logger.exception("Failed to parse AI JSON.")
+            logger.exception(
+                "Failed to parse AI JSON."
+            )
 
             return {
                 "summary": content,
@@ -132,7 +188,9 @@ class GroqService:
 
         except Exception:
 
-            logger.exception("Groq request failed.")
+            logger.exception(
+                "Unexpected error processing AI response."
+            )
 
             return {
                 "summary": "Failed to generate AI review.",
