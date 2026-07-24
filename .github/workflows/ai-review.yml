@@ -1,17 +1,18 @@
-name: AI Code Review Bot CI
+name: AI Code Review Bot
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 jobs:
-  structure-check:
+  ai-review:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Verify Structure
-        run: echo "AI Code Review Bot structure verified successfully"
+      - name: Trigger AI Code Review
+        run: |
+          curl -X POST \
+          "https://ai-code-review-bot-dwe8.onrender.com/api/v1/github/pulls/${{ github.event.pull_request.number }}/review"
