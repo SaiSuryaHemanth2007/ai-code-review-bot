@@ -105,5 +105,28 @@ class GitHubService:
             logger.exception("Failed to fetch pull request files.")
             raise Exception(str(exc))
 
+    def create_pull_request_comment(
+        self,
+        pull_number: int,
+        comment: str,
+    ):
+        """Post a comment on a GitHub pull request."""
+
+        try:
+            repo = self.get_repository()
+
+            pull = repo.get_pull(pull_number)
+
+            pull.create_issue_comment(comment)
+
+            logger.info(
+                "Successfully posted AI review to PR #%s",
+                pull_number,
+            )
+
+        except GithubException as exc:
+            logger.exception("Failed to post PR comment.")
+            raise Exception(str(exc))
+
 
 github_service = GitHubService()

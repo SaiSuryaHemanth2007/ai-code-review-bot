@@ -17,10 +17,18 @@ class ReviewService:
             combined_diff += f"\n\nFILE: {file['filename']}\n"
             combined_diff += file.get("patch") or ""
 
-        return ai_service.review_code(
+        review = ai_service.review_code(
             combined_diff,
             "GitHub Pull Request",
         )
+
+        # Automatically post the AI review to GitHub
+        github_service.create_pull_request_comment(
+            pull_number,
+            review,
+        )
+
+        return review
 
 
 review_service = ReviewService()
