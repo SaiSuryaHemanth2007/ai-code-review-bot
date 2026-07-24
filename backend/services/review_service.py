@@ -1,6 +1,29 @@
+import os
+
 from backend.core.logger import logger
 from backend.services.github_service import github_service
 from backend.services.groq_service import groq_service
+
+
+SUPPORTED_EXTENSIONS = {
+    ".py",
+    ".java",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".go",
+    ".rs",
+    ".php",
+    ".rb",
+    ".swift",
+    ".kt",
+}
 
 
 class ReviewService:
@@ -25,6 +48,17 @@ class ReviewService:
             filename = file["filename"]
             patch = file.get("patch")
 
+            # Skip unsupported file types
+            _, extension = os.path.splitext(filename)
+
+            if extension.lower() not in SUPPORTED_EXTENSIONS:
+                logger.info(
+                    "Skipping %s (unsupported file type).",
+                    filename,
+                )
+                continue
+
+            # Skip deleted/binary files
             if not patch:
                 logger.info(
                     "Skipping %s (no patch available).",
@@ -50,7 +84,6 @@ class ReviewService:
 
             for issue in issues:
 
-                # Ensure the filename exists
                 if not issue.get("file"):
                     issue["file"] = filename
 
@@ -58,7 +91,7 @@ class ReviewService:
 
         logger.info(
             "Completed AI review of %s files.",
-            len(files),
+            len(all_summaries),
         )
 
         # Post inline comments
@@ -104,9 +137,7 @@ class ReviewService:
         if all_summaries:
             summary_comment += "\n\n".join(all_summaries)
         else:
-            summary_comment += (
-                "No review summary generated."
-            )
+            summary_comment += "No supported source code files were found to review."
 
         github_service.create_pull_request_comment(
             pull_number,
