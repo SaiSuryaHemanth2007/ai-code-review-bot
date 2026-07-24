@@ -1,6 +1,11 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from backend.config.ignore_patterns import (
+    IGNORED_DIRECTORIES,
+    IGNORED_FILES,
+    IGNORED_SUFFIXES,
+)
 from backend.core.logger import logger
 from backend.services.github_service import github_service
 from backend.services.groq_service import groq_service
@@ -38,10 +43,38 @@ class ReviewService:
     def review(self, code: str, language: str):
         return groq_service.review_code(code, language)
 
+    def should_ignore_file(self, filename: str) -> bool:
+        """
+        Returns True if the file should not be reviewed.
+        """
+
+        normalized = filename.replace("\\", "/")
+
+        parts = normalized.split("/")
+
+        # Ignore directories
+        for directory in parts[:-1]:
+            if directory in IGNORED_DIRECTORIES:
+                return True
+
+        file_name = parts[-1]
+
+        # Ignore exact filenames
+        if file_name in IGNORED_FILES:
+            return True
+
+        # Ignore generated/minified files
+        for suffix in IGNORED_SUFFIXES:
+            if file_name.endswith(suffix):
+                return True
+
+        return False
+
     def review_file(self, filename: str, patch: str, language: str):
         """
         Review a single file.
         """
+
         logger.info("Reviewing %s (%s)", filename, language)
 
         review = groq_service.review_code(
@@ -58,14 +91,14 @@ class ReviewService:
 
         logger.info("Starting AI review for PR #%s", pull_number)
 
-        files = github_service.get_pull_request_files(pull_number)
+        files = github_service.get_pull_request_files(
+            pull_number
+        )
 
         summaries = []
         issues = []
 
         review_tasks = []
-
-        files_reviewed = 0
 
         severity_count = {
             "CRITICAL": 0,
@@ -80,15 +113,29 @@ class ReviewService:
             filename = file["filename"]
             patch = file.get("patch")
 
+            # Ignore generated/vendor files
+            if self.should_ignore_file(filename):
+                logger.info(
+                    "Ignoring file: %s",
+                    filename,
+                )
+                continue
+
             _, extension = os.path.splitext(filename)
             extension = extension.lower()
 
             if extension not in SUPPORTED_EXTENSIONS:
-                logger.info("Skipping %s (unsupported file)", filename)
+                logger.info(
+                    "Skipping unsupported file: %s",
+                    filename,
+                )
                 continue
 
             if not patch:
-                logger.info("Skipping %s (no patch)", filename)
+                logger.info(
+                    "Skipping %s (no patch)",
+                    filename,
+                )
                 continue
 
             language = LANGUAGE_MAP.get(
@@ -106,7 +153,7 @@ class ReviewService:
 
         files_reviewed = len(review_tasks)
 
-        # Review files in parallel
+        # Parallel reviews
         with ThreadPoolExecutor(max_workers=4) as executor:
 
             futures = [
@@ -135,7 +182,10 @@ class ReviewService:
                             f"## {filename}\n{summary}"
                         )
 
-                    for issue in review.get("issues", []):
+                    for issue in review.get(
+                        "issues",
+                        [],
+                    ):
 
                         if not issue.get("file"):
                             issue["file"] = filename
@@ -146,16 +196,19 @@ class ReviewService:
                         ).upper()
 
                         if severity in severity_count:
-                            severity_count[severity] += 1
+                            severity_count[
+                                severity
+                            ] += 1
 
                         issues.append(issue)
 
                 except Exception:
+
                     logger.exception(
                         "Error reviewing file."
                     )
 
-        # Post inline comments
+        # Inline comments
         for issue in issues:
 
             try:
@@ -210,7 +263,9 @@ Issues Found: {total_issues}
         if summaries:
             report += "\n\n".join(summaries)
         else:
-            report += "No supported source files were reviewed."
+            report += (
+                "No supported source files were reviewed."
+            )
 
         github_service.upsert_pull_request_comment(
             pull_number,
