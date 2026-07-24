@@ -9,6 +9,7 @@ from pathlib import Path
 
 from groq import Groq
 
+from backend.config.repository_context import REPOSITORY_CONTEXT
 from backend.config.review_rules import REVIEW_RULES
 from backend.core.logger import logger
 from backend.core.settings import settings
@@ -48,6 +49,10 @@ class GroqService:
             self.review_prompt
             .replace("{language}", language)
             .replace("{rules}", rules_text)
+            .replace(
+                "{repository_context}",
+                REPOSITORY_CONTEXT,
+            )
             .replace("{code}", code)
         )
 

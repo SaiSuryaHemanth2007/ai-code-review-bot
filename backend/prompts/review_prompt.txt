@@ -8,6 +8,10 @@ Programming Language:
 Review Categories:
 {rules}
 
+Repository Context:
+
+{repository_context}
+
 Review ONLY the categories listed above.
 
 Code:
