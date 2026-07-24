@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from backend.core.logger import logger
 from backend.services.github_service import github_service
@@ -37,6 +38,22 @@ class ReviewService:
     def review(self, code: str, language: str):
         return groq_service.review_code(code, language)
 
+    def review_file(self, filename: str, patch: str, language: str):
+        """
+        Review a single file.
+        """
+        logger.info("Reviewing %s (%s)", filename, language)
+
+        review = groq_service.review_code(
+            patch,
+            language,
+        )
+
+        return {
+            "filename": filename,
+            "review": review,
+        }
+
     def review_pull_request(self, pull_number: int):
 
         logger.info("Starting AI review for PR #%s", pull_number)
@@ -45,6 +62,8 @@ class ReviewService:
 
         summaries = []
         issues = []
+
+        review_tasks = []
 
         files_reviewed = 0
 
@@ -55,6 +74,7 @@ class ReviewService:
             "LOW": 0,
         }
 
+        # Collect review tasks
         for file in files:
 
             filename = file["filename"]
@@ -64,45 +84,78 @@ class ReviewService:
             extension = extension.lower()
 
             if extension not in SUPPORTED_EXTENSIONS:
-                logger.info("Skipping %s", filename)
+                logger.info("Skipping %s (unsupported file)", filename)
                 continue
 
             if not patch:
                 logger.info("Skipping %s (no patch)", filename)
                 continue
 
-            files_reviewed += 1
-
-            language = LANGUAGE_MAP.get(extension, "Unknown")
-
-            review = groq_service.review_code(
-                patch,
-                language,
+            language = LANGUAGE_MAP.get(
+                extension,
+                "Unknown",
             )
 
-            summary = review.get("summary")
-
-            if summary:
-                summaries.append(
-                    f"## {filename}\n{summary}"
+            review_tasks.append(
+                (
+                    filename,
+                    patch,
+                    language,
                 )
+            )
 
-            for issue in review.get("issues", []):
+        files_reviewed = len(review_tasks)
 
-                if not issue.get("file"):
-                    issue["file"] = filename
+        # Review files in parallel
+        with ThreadPoolExecutor(max_workers=4) as executor:
 
-                severity = issue.get(
-                    "severity",
-                    "LOW",
-                ).upper()
+            futures = [
+                executor.submit(
+                    self.review_file,
+                    filename,
+                    patch,
+                    language,
+                )
+                for filename, patch, language in review_tasks
+            ]
 
-                if severity in severity_count:
-                    severity_count[severity] += 1
+            for future in as_completed(futures):
 
-                issues.append(issue)
+                try:
 
-        # Inline comments
+                    result = future.result()
+
+                    filename = result["filename"]
+                    review = result["review"]
+
+                    summary = review.get("summary")
+
+                    if summary:
+                        summaries.append(
+                            f"## {filename}\n{summary}"
+                        )
+
+                    for issue in review.get("issues", []):
+
+                        if not issue.get("file"):
+                            issue["file"] = filename
+
+                        severity = issue.get(
+                            "severity",
+                            "LOW",
+                        ).upper()
+
+                        if severity in severity_count:
+                            severity_count[severity] += 1
+
+                        issues.append(issue)
+
+                except Exception:
+                    logger.exception(
+                        "Error reviewing file."
+                    )
+
+        # Post inline comments
         for issue in issues:
 
             try:
