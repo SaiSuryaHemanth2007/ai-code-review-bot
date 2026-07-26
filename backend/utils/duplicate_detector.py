@@ -12,10 +12,11 @@ class DuplicateDetector:
         for issue in issues:
 
             key = (
-                issue.get("severity", "").upper(),
-                issue.get("comment", "").strip().lower(),
-                issue.get("suggestion", "").strip().lower(),
-            )
+    issue.get("file", ""),
+    issue.get("severity", "").upper(),
+    issue.get("comment", "").strip().lower(),
+    issue.get("suggestion", "").strip().lower(),
+)
 
             grouped[key].append(issue)
 

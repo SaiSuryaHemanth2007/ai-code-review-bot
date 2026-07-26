@@ -10,6 +10,7 @@ from backend.core.logger import logger
 from backend.services.github_service import github_service
 from backend.services.groq_service import groq_service
 from backend.utils.quality_score import QualityScore
+from backend.utils.duplicate_detector import DuplicateDetector
 
 
 SUPPORTED_EXTENSIONS = {
@@ -255,6 +256,8 @@ class ReviewService:
                 logger.exception(
                     "Failed posting inline comment."
                 )
+
+        issues = DuplicateDetector.group_issues(issues)
 
         total_issues = len(issues)
         quality = QualityScore.calculate(

@@ -10,6 +10,9 @@ class ReviewIssue(BaseModel):
     comment: Optional[str] = None
     suggestion: Optional[str] = None
 
+    occurrences: Optional[int] = None
+    files: Optional[list[str]] = None
+
 
 class QualityResponse(BaseModel):
     score: int

@@ -105,10 +105,11 @@ class GroqService:
 
                 break
 
-            except Exception:
+            except Exception as e:
 
                 logger.exception(
-                    "Groq request failed."
+                    "Groq request failed : %s",
+                    str(e),
                 )
 
                 if attempt == MAX_RETRIES - 1:
