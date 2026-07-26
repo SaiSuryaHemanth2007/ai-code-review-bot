@@ -1,4 +1,5 @@
 from typing import List, Optional
+from backend.schemas.review_statistics import ReviewStatistics
 
 from pydantic import BaseModel
 
@@ -12,6 +13,7 @@ class ReviewIssue(BaseModel):
 
     occurrences: Optional[int] = None
     files: Optional[list[str]] = None
+    confidence: Optional[int] = None
 
 
 class QualityResponse(BaseModel):
@@ -27,5 +29,7 @@ class PullRequestReviewResult(BaseModel):
 
 
 class PullRequestReviewResponse(BaseModel):
-    pull_request: int
-    review: PullRequestReviewResult
+    quality: QualityResponse
+    statistics: ReviewStatistics
+    summary: str
+    issues: list[ReviewIssue]

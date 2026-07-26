@@ -1,4 +1,5 @@
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from backend.config.ignore_patterns import (
@@ -94,11 +95,21 @@ class ReviewService:
             issue["file"] = filename
 
         issue["severity"] = (
-            issue.get("severity", "LOW")
-            .upper()
+            issue.get("severity", "LOW").upper()
             if isinstance(issue.get("severity"), str)
             else "LOW"
         )
+
+        confidence = issue.get("confidence", 50)
+
+        try:
+            confidence = int(confidence)
+        except (TypeError, ValueError):
+            confidence = 50
+
+        confidence = max(0, min(100, confidence))
+
+        issue["confidence"] = confidence
 
         return issue
 
@@ -114,6 +125,7 @@ class ReviewService:
     def review_pull_request(self, pull_number: int):
 
         logger.info("Starting AI review for PR #%s", pull_number)
+        start_time = time.perf_counter()
 
         files = github_service.get_pull_request_files(
             pull_number
@@ -260,16 +272,45 @@ class ReviewService:
         issues = DuplicateDetector.group_issues(issues)
 
         total_issues = len(issues)
-        quality = QualityScore.calculate(
-    critical=severity_count["CRITICAL"],
-    high=severity_count["HIGH"],
-    medium=severity_count["MEDIUM"],
-    low=severity_count["LOW"],
-)
 
-        if severity_count["CRITICAL"] > 0:
+        review_duration = round(
+            time.perf_counter() - start_time,
+            2,
+        )
+
+        critical = severity_count["CRITICAL"]
+        high = severity_count["HIGH"]
+        medium = severity_count["MEDIUM"]
+        low = severity_count["LOW"]
+
+        statistics = {
+            "review_duration_seconds": review_duration,
+            "files_reviewed": files_reviewed,
+            "files_skipped": 0,
+            "ai_requests": files_reviewed,
+            "ai_failures": 0,
+            "total_issues": total_issues,
+            "critical": critical,
+            "high": high,
+            "medium": medium,
+            "low": low,
+            "average_issues_per_file": (
+                round(total_issues / files_reviewed, 2)
+                if files_reviewed
+                else 0.0
+            ),
+        }
+
+        quality = QualityScore.calculate(
+            critical=critical,
+            high=high,
+            medium=medium,
+            low=low,
+        )
+
+        if critical > 0:
             verdict = "❌ Changes Required"
-        elif severity_count["HIGH"] > 0:
+        elif high > 0:
             verdict = "⚠️ Review Required"
         else:
             verdict = "✅ Looks Good"
@@ -288,10 +329,10 @@ Files Reviewed: {files_reviewed}
 
 Issues Found: {total_issues}
 
-🔴 Critical: {severity_count['CRITICAL']}
-🟠 High: {severity_count['HIGH']}
-🟡 Medium: {severity_count['MEDIUM']}
-🔵 Low: {severity_count['LOW']}
+🔴 Critical: {critical}
+🟠 High: {high}
+🟡 Medium: {medium}
+🔵 Low: {low}
 
 ---
 
@@ -320,14 +361,15 @@ Issues Found: {total_issues}
         logger.info("Review completed.")
 
         return {
-    "quality": {
-        "score": quality["score"],
-        "grade": quality["grade"],
-        "stars": quality["stars"],
-    },
-    "summary": report,
-    "issues": issues,
-}
+            "quality": {
+                "score": quality["score"],
+                "grade": quality["grade"],
+                "stars": quality["stars"],
+            },
+            "statistics": statistics,
+            "summary": report,
+            "issues": issues,
+        }
 
 
 review_service = ReviewService()

@@ -164,6 +164,34 @@ class GroqService:
 
             review = json.loads(cleaned)
 
+            # Ensure every issue has a confidence score
+            for issue in review.get("issues", []):
+
+                if "confidence" not in issue:
+
+                    severity = (
+                        issue.get(
+                            "severity",
+                            "",
+                        )
+                        .upper()
+                    )
+
+                    if severity == "CRITICAL":
+                        issue["confidence"] = 98
+
+                    elif severity == "HIGH":
+                        issue["confidence"] = 90
+
+                    elif severity == "MEDIUM":
+                        issue["confidence"] = 75
+
+                    elif severity == "LOW":
+                        issue["confidence"] = 60
+
+                    else:
+                        issue["confidence"] = 50
+
             # Store successful review in cache
             store_review(
                 cache_key,

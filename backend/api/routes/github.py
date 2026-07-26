@@ -66,7 +66,4 @@ async def get_pull_request_files(pull_number: int):
     summary="Review Pull Request",
 )
 async def review_pull_request(pull_number: int):
-    return {
-        "pull_request": pull_number,
-        "review": review_service.review_pull_request(pull_number),
-    }
+    return review_service.review_pull_request(pull_number)
