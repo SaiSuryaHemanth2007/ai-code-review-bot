@@ -1,7 +1,3 @@
-"""
-Response schema for code review.
-"""
-
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -21,17 +17,12 @@ class QualityResponse(BaseModel):
     stars: str
 
 
-class ReviewResult(BaseModel):
+class PullRequestReviewResult(BaseModel):
     quality: QualityResponse
     summary: str
     issues: List[ReviewIssue]
 
 
-class ReviewResponse(BaseModel):
-    """
-    Response returned by the AI reviewer.
-    """
-
-    success: bool
-    language: str
-    review: ReviewResult
+class PullRequestReviewResponse(BaseModel):
+    pull_request: int
+    review: PullRequestReviewResult

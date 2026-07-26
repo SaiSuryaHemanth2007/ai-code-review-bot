@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 
 from backend.core.settings import settings
+from backend.schemas.pull_request_review_response import (
+    PullRequestReviewResponse,
+)
 from backend.services.github_service import github_service
 from backend.services.review_service import review_service
 
@@ -59,6 +62,7 @@ async def get_pull_request_files(pull_number: int):
 
 @router.post(
     "/pulls/{pull_number}/review",
+    response_model=PullRequestReviewResponse,
     summary="Review Pull Request",
 )
 async def review_pull_request(pull_number: int):
