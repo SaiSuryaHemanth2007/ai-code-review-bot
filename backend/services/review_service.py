@@ -87,6 +87,28 @@ class ReviewService:
             "review": review,
         }
 
+    def _normalize_issue(self, issue: dict, filename: str) -> dict:
+        if not issue.get("file"):
+            issue["file"] = filename
+
+        issue["severity"] = (
+            issue.get("severity", "LOW")
+            .upper()
+            if isinstance(issue.get("severity"), str)
+            else "LOW"
+        )
+
+        return issue
+
+    def _is_valid_inline_issue(self, issue: dict) -> bool:
+        return (
+            isinstance(issue.get("file"), str)
+            and isinstance(issue.get("line"), int)
+            and issue["line"] > 0
+            and isinstance(issue.get("comment"), str)
+            and issue["comment"].strip()
+        )
+
     def review_pull_request(self, pull_number: int):
 
         logger.info("Starting AI review for PR #%s", pull_number)
@@ -187,8 +209,10 @@ class ReviewService:
                         [],
                     ):
 
-                        if not issue.get("file"):
-                            issue["file"] = filename
+                        issue = self._normalize_issue(
+                            issue,
+                            filename,
+                        )
 
                         severity = issue.get(
                             "severity",
@@ -210,6 +234,14 @@ class ReviewService:
 
         # Inline comments
         for issue in issues:
+
+            if not self._is_valid_inline_issue(issue):
+                logger.warning(
+                    "Skipping invalid inline issue for PR %s: %s",
+                    pull_number,
+                    issue,
+                )
+                continue
 
             try:
 
