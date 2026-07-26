@@ -9,6 +9,7 @@ from backend.config.ignore_patterns import (
 from backend.core.logger import logger
 from backend.services.github_service import github_service
 from backend.services.groq_service import groq_service
+from backend.utils.quality_score import QualityScore
 
 
 SUPPORTED_EXTENSIONS = {
@@ -214,10 +215,7 @@ class ReviewService:
                             filename,
                         )
 
-                        severity = issue.get(
-                            "severity",
-                            "LOW",
-                        ).upper()
+                        severity = issue["severity"]
 
                         if severity in severity_count:
                             severity_count[
@@ -259,6 +257,12 @@ class ReviewService:
                 )
 
         total_issues = len(issues)
+        quality = QualityScore.calculate(
+    critical=severity_count["CRITICAL"],
+    high=severity_count["HIGH"],
+    medium=severity_count["MEDIUM"],
+    low=severity_count["LOW"],
+)
 
         if severity_count["CRITICAL"] > 0:
             verdict = "❌ Changes Required"
@@ -270,6 +274,12 @@ class ReviewService:
         report = f"""# 🤖 AI Code Review Report
 
 ## 📊 Summary
+
+Quality Score: {quality["score"]}/100
+
+Grade: {quality["grade"]}
+
+Rating: {quality["stars"]}
 
 Files Reviewed: {files_reviewed}
 
