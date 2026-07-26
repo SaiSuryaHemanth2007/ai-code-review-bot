@@ -317,9 +317,14 @@ Issues Found: {total_issues}
         logger.info("Review completed.")
 
         return {
-            "summary": report,
-            "issues": issues,
-        }
+    "quality": {
+        "score": quality["score"],
+        "grade": quality["grade"],
+        "stars": quality["stars"],
+    },
+    "summary": report,
+    "issues": issues,
+}
 
 
 review_service = ReviewService()
