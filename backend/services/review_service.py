@@ -1,7 +1,6 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from backend.utils.duplicate_detector import DuplicateDetector
-from backend.utils.quality_score import QualityScore
+
 from backend.config.ignore_patterns import (
     IGNORED_DIRECTORIES,
     IGNORED_FILES,
@@ -50,6 +49,7 @@ class ReviewService:
         """
 
         normalized = filename.replace("\\", "/")
+
         parts = normalized.split("/")
 
         # Ignore directories
@@ -97,6 +97,7 @@ class ReviewService:
 
         summaries = []
         issues = []
+
         review_tasks = []
 
         severity_count = {
@@ -181,7 +182,10 @@ class ReviewService:
                             f"## {filename}\n{summary}"
                         )
 
-                    for issue in review.get("issues", []):
+                    for issue in review.get(
+                        "issues",
+                        [],
+                    ):
 
                         if not issue.get("file"):
                             issue["file"] = filename
@@ -192,16 +196,19 @@ class ReviewService:
                         ).upper()
 
                         if severity in severity_count:
-                            severity_count[severity] += 1
+                            severity_count[
+                                severity
+                            ] += 1
 
                         issues.append(issue)
 
                 except Exception:
+
                     logger.exception(
                         "Error reviewing file."
                     )
 
-        # Post inline comments
+        # Inline comments
         for issue in issues:
 
             try:
@@ -214,23 +221,13 @@ class ReviewService:
                 )
 
             except Exception:
+
                 logger.exception(
                     "Failed posting inline comment."
                 )
 
-        total_issues = len(grouped_issues)
+        total_issues = len(issues)
 
-        # ----------------------------
-        # Calculate AI Quality Score
-        # ----------------------------
-        quality = QualityScore.calculate(
-            critical=severity_count["CRITICAL"],
-            high=severity_count["HIGH"],
-            medium=severity_count["MEDIUM"],
-            low=severity_count["LOW"],
-        )
-
-        # Decide overall verdict
         if severity_count["CRITICAL"] > 0:
             verdict = "❌ Changes Required"
         elif severity_count["HIGH"] > 0:
@@ -238,18 +235,7 @@ class ReviewService:
         else:
             verdict = "✅ Looks Good"
 
-        # Build AI Review Report
         report = f"""# 🤖 AI Code Review Report
-
-## 🏆 Overall Code Quality
-
-**Score:** {quality["score"]}/100
-
-**Grade:** {quality["grade"]}
-
-**Rating:** {quality["stars"]}
-
----
 
 ## 📊 Summary
 
@@ -257,55 +243,29 @@ Files Reviewed: {files_reviewed}
 
 Issues Found: {total_issues}
 
-🔴 Critical: {severity_count["CRITICAL"]}
-🟠 High: {severity_count["HIGH"]}
-🟡 Medium: {severity_count["MEDIUM"]}
-🔵 Low: {severity_count["LOW"]}
+🔴 Critical: {severity_count['CRITICAL']}
+🟠 High: {severity_count['HIGH']}
+🟡 Medium: {severity_count['MEDIUM']}
+🔵 Low: {severity_count['LOW']}
 
 ---
 
-## ✅ Overall Verdict
+## Overall Verdict
 
 {verdict}
 
 ---
 
-## 📁 File Reviews
+## File Reviews
 
 """
 
         if summaries:
-    report += "\n\n".join(summaries)
-else:
-    report += (
-        "No supported source files were reviewed."
-    )
-
-report += "\n\n---\n\n"
-report += "## 🔁 Duplicate Issues Summary\n\n"
-
-duplicates_found = False
-
-for issue in grouped_issues:
-
-    if issue["occurrences"] > 1:
-
-        duplicates_found = True
-
-        report += (
-            f"### {issue['comment']}\n"
-            f"- Severity: {issue['severity']}\n"
-            f"- Occurrences: {issue['occurrences']}\n"
-            f"- Files:\n"
-        )
-
-        for file in issue["files"]:
-            report += f"  - {file}\n"
-
-        report += "\n"
-
-if not duplicates_found:
-    report += "No duplicate issues detected.\n"
+            report += "\n\n".join(summaries)
+        else:
+            report += (
+                "No supported source files were reviewed."
+            )
 
         github_service.upsert_pull_request_comment(
             pull_number,
@@ -317,7 +277,6 @@ if not duplicates_found:
         return {
             "summary": report,
             "issues": issues,
-            "quality_score": quality,
         }
 
 
