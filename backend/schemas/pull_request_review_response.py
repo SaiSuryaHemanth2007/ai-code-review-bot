@@ -1,6 +1,9 @@
 from typing import List, Optional
 from backend.schemas.review_statistics import ReviewStatistics
 from backend.schemas.review_analytics import ReviewAnalytics
+from backend.schemas.review_recommendations import (
+    ReviewRecommendations,
+)
 
 from pydantic import BaseModel
 
@@ -34,5 +37,6 @@ class PullRequestReviewResponse(BaseModel):
     quality: QualityResponse
     statistics: ReviewStatistics
     analytics: ReviewAnalytics
+    recommendations: ReviewRecommendations
     summary: str
     issues: list[ReviewIssue]

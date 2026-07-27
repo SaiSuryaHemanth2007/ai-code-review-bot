@@ -13,6 +13,9 @@ from backend.services.groq_service import groq_service
 from backend.utils.quality_score import QualityScore
 from backend.utils.duplicate_detector import DuplicateDetector
 from backend.utils.review_analytics import generate_review_analytics
+from backend.utils.review_recommendations import (
+    generate_recommendations,
+)
 
 
 SUPPORTED_EXTENSIONS = {
@@ -327,6 +330,9 @@ class ReviewService:
         )
 
         analytics = generate_review_analytics(issues)
+        recommendations = generate_recommendations(
+            analytics,
+        )
 
 
         score = quality["score"]
@@ -370,17 +376,34 @@ Issues Found: {total_issues}
 
 ---
 
-## File Reviews
+## 📈 Analytics
+
+Most Common Category: {analytics.most_common_category}
+
+Most Common Severity: {analytics.most_common_severity}
+
+Average Confidence: {analytics.average_confidence}%
+
+Highest Confidence: {analytics.highest_confidence}%
+
+Lowest Confidence: {analytics.lowest_confidence}%
+
+---
+
+## 💡 Recommendations
 
 """
+
+        for recommendation in recommendations.recommendations:
+            report += f"- {recommendation}\n"
+
+        report += "\n---\n\n## File Reviews\n\n"
 
         if summaries:
             report += "\n\n".join(summaries)
         else:
-            report += (
-                "No supported source files were reviewed."
-            )
-
+            report += "No supported source files were reviewed."
+    
         github_service.upsert_pull_request_comment(
             pull_number,
             report,
@@ -396,6 +419,7 @@ Issues Found: {total_issues}
             },
             "statistics": statistics,
             "analytics": analytics,
+            "recommendations": recommendations,
             "summary": report,
             "issues": issues,
         }
