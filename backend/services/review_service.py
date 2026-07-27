@@ -12,6 +12,7 @@ from backend.services.github_service import github_service
 from backend.services.groq_service import groq_service
 from backend.utils.quality_score import QualityScore
 from backend.utils.duplicate_detector import DuplicateDetector
+from backend.utils.review_analytics import generate_review_analytics
 
 
 SUPPORTED_EXTENSIONS = {
@@ -325,12 +326,22 @@ class ReviewService:
             low=low,
         )
 
-        if critical > 0:
-            verdict = "❌ Changes Required"
-        elif high > 0:
-            verdict = "⚠️ Review Required"
-        else:
+        analytics = generate_review_analytics(issues)
+
+
+        score = quality["score"]
+
+        if score >= 90:
+            verdict = "🌟 Excellent"
+
+        elif score >= 75:
             verdict = "✅ Looks Good"
+
+        elif score >= 50:
+            verdict = "⚠️ Review Required"
+
+        else:
+            verdict = "❌ Changes Required"
 
         report = f"""# 🤖 AI Code Review Report
 
@@ -384,6 +395,7 @@ Issues Found: {total_issues}
                 "stars": quality["stars"],
             },
             "statistics": statistics,
+            "analytics": analytics,
             "summary": report,
             "issues": issues,
         }
