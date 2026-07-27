@@ -28,6 +28,7 @@ IMPORTANT RULES
 7. Do NOT use ```json.
 8. The response must be valid JSON.
 9. Include a confidence score for every issue.
+10. Include exactly one category for every issue.
 
 Confidence Score Guidelines
 
@@ -38,6 +39,18 @@ Confidence Score Guidelines
 
 Assign confidence based on how certain you are that the reported issue is correct.
 
+Issue Categories
+
+Use exactly one of the following categories:
+
+- Security
+- Performance
+- Correctness
+- Maintainability
+- Best Practices
+- Documentation
+- Testing
+
 Return exactly this schema:
 
 {
@@ -47,6 +60,7 @@ Return exactly this schema:
       "file": "",
       "line": 1,
       "severity": "LOW",
+      "category": "Security",
       "confidence": 95,
       "comment": "Describe the issue.",
       "suggestion": "Provide a concise fix."

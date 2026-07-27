@@ -11,6 +11,7 @@ class ReviewIssue(BaseModel):
     file: Optional[str] = None
     line: Optional[int] = None
     severity: Optional[str] = None
+    category: Optional[str] = None
     confidence: Optional[int] = None
     comment: Optional[str] = None
     suggestion: Optional[str] = None

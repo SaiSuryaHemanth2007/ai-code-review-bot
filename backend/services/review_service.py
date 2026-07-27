@@ -108,8 +108,25 @@ class ReviewService:
             confidence = 50
 
         confidence = max(0, min(100, confidence))
-
+        
         issue["confidence"] = confidence
+
+        allowed_categories = {
+            "Security",
+            "Performance",
+            "Correctness",
+            "Maintainability",
+            "Best Practices",
+            "Documentation",
+            "Testing",
+        }
+
+        category = issue.get("category", "Best Practices")
+
+        if category not in allowed_categories:
+            category = "Best Practices"
+
+        issue["category"] = category
 
         return issue
 
