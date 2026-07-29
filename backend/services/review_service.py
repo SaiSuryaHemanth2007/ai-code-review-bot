@@ -16,6 +16,13 @@ from backend.utils.review_analytics import generate_review_analytics
 from backend.utils.review_recommendations import (
     generate_recommendations,
 )
+from backend.utils.review_cache import (
+    generate_cache_key,
+    get_cached_review,
+    store_review,
+    get_cache_statistics,
+    clear_cache,
+)
 
 
 SUPPORTED_EXTENSIONS = {
@@ -84,16 +91,42 @@ class ReviewService:
 
         logger.info("Reviewing %s (%s)", filename, language)
 
-        review = groq_service.review_code(
+        cache_key = generate_cache_key(
             patch,
             language,
         )
+
+        review = get_cached_review(cache_key)
+
+        if review is None:
+
+            review = groq_service.review_code(
+                patch,
+                language,
+            )
+
+            store_review(
+                cache_key,
+                review,
+            )
+
+            logger.info(
+                "Cache MISS: %s",
+                filename,
+            )
+
+        else:
+
+            logger.info(
+                "Cache HIT: %s",
+                filename,
+            )
 
         return {
             "filename": filename,
             "review": review,
         }
-
+    
     def _normalize_issue(self, issue: dict, filename: str) -> dict:
         if not issue.get("file"):
             issue["file"] = filename
@@ -146,6 +179,9 @@ class ReviewService:
     def review_pull_request(self, pull_number: int):
 
         logger.info("Starting AI review for PR #%s", pull_number)
+
+        # clear_cache()
+
         start_time = time.perf_counter()
 
         files = github_service.get_pull_request_files(
@@ -304,12 +340,20 @@ class ReviewService:
         medium = severity_count["MEDIUM"]
         low = severity_count["LOW"]
 
+        cache_stats = get_cache_statistics()
+        
         statistics = {
             "review_duration_seconds": review_duration,
             "files_reviewed": files_reviewed,
             "files_skipped": 0,
             "ai_requests": files_reviewed,
             "ai_failures": 0,
+
+            "cache_hits": cache_stats["cache_hits"],
+            "cache_misses": cache_stats["cache_misses"],
+            "cache_hit_rate": cache_stats["cache_hit_rate"],
+            "cache_size": cache_stats["cache_size"],
+
             "total_issues": total_issues,
             "critical": critical,
             "high": high,
@@ -387,6 +431,18 @@ Average Confidence: {analytics.average_confidence}%
 Highest Confidence: {analytics.highest_confidence}%
 
 Lowest Confidence: {analytics.lowest_confidence}%
+
+---
+
+## 📦 Cache Statistics
+
+Cache Hits: {cache_stats["cache_hits"]}
+
+Cache Misses: {cache_stats["cache_misses"]}
+
+Cache Hit Rate: {cache_stats["cache_hit_rate"]}%
+
+Cache Size: {cache_stats["cache_size"]}
 
 ---
 
