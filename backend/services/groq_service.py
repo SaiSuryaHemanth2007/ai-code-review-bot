@@ -8,13 +8,12 @@ import json
 import time
 from pathlib import Path
 
-from groq import Groq
+from groq import Groq, RateLimitError
 
 from backend.config.repository_context import REPOSITORY_CONTEXT
 from backend.config.review_rules import REVIEW_RULES
 from backend.core.logger import logger
 from backend.core.settings import settings
-# Cache is handled by review_service.py
 
 MAX_RETRIES = 3
 
@@ -37,7 +36,7 @@ class GroqService:
 
         logger.info("Generating AI review using Groq...")
         logger.info("Detected language: %s", language)
-        
+
         enabled_rules = []
 
         for rule, enabled in REVIEW_RULES.items():
@@ -91,17 +90,39 @@ class GroqService:
 
                 break
 
+            except RateLimitError as e:
+
+                logger.error(
+                    "Groq daily token limit reached: %s",
+                    str(e),
+                )
+
+                return {
+                    "success": False,
+                    "error": "RATE_LIMIT",
+                    "summary": (
+                        "⚠️ AI review skipped because the "
+                        "Groq daily token limit has been reached."
+                    ),
+                    "issues": [],
+                }
+
             except Exception as e:
 
                 logger.exception(
-                    "Groq request failed : %s",
+                    "Groq request failed: %s",
                     str(e),
                 )
 
                 if attempt == MAX_RETRIES - 1:
 
                     return {
-                        "summary": "Failed to generate AI review after multiple attempts.",
+                        "success": False,
+                        "error": "UNKNOWN",
+                        "summary": (
+                            "Failed to generate AI review "
+                            "after multiple attempts."
+                        ),
                         "issues": [],
                     }
 
@@ -154,7 +175,11 @@ class GroqService:
             for issue in review.get("issues", []):
 
                 if "confidence" not in issue:
-                    severity = issue.get("severity", "LOW").upper()
+
+                    severity = issue.get(
+                        "severity",
+                        "LOW",
+                    ).upper()
 
                     if severity == "CRITICAL":
                         issue["confidence"] = 95
@@ -168,10 +193,11 @@ class GroqService:
                 if "category" not in issue:
                     issue["category"] = "Best Practices"
 
-
             logger.info(
                 "Successfully parsed AI JSON."
             )
+
+            review["success"] = True
 
             return review
 
@@ -182,6 +208,8 @@ class GroqService:
             )
 
             return {
+                "success": False,
+                "error": "INVALID_JSON",
                 "summary": content,
                 "issues": [],
             }
@@ -193,7 +221,11 @@ class GroqService:
             )
 
             return {
-                "summary": "Failed to generate AI review.",
+                "success": False,
+                "error": "PROCESSING_ERROR",
+                "summary": (
+                    "Failed to generate AI review."
+                ),
                 "issues": [],
             }
 

@@ -6,8 +6,17 @@ from backend.schemas.pull_request_review_response import (
 )
 from backend.services.github_service import github_service
 from backend.services.review_service import review_service
+from backend.utils.review_cache import get_cache_statistics
 
 router = APIRouter()
+
+
+@router.get(
+    "/cache",
+    summary="Review Cache Statistics",
+)
+async def cache():
+    return get_cache_statistics()
 
 
 @router.get(

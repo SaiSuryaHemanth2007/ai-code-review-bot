@@ -9,7 +9,8 @@ from backend.config.ignore_patterns import (
 )
 from backend.core.logger import logger
 from backend.services.github_service import github_service
-from backend.services.groq_service import groq_service
+from backend.services.ai_service import ai_service
+from backend.core.settings import settings
 from backend.utils.quality_score import QualityScore
 from backend.utils.duplicate_detector import DuplicateDetector
 from backend.utils.review_analytics import generate_review_analytics
@@ -23,6 +24,8 @@ from backend.utils.review_cache import (
     get_cache_statistics,
     clear_cache,
 )
+from backend.services.history_service import history_service
+import time
 
 
 SUPPORTED_EXTENSIONS = {
@@ -55,7 +58,7 @@ LANGUAGE_MAP = {
 class ReviewService:
 
     def review(self, code: str, language: str):
-        return groq_service.review_code(code, language)
+        return ai_service.review_code(code, language)
 
     def should_ignore_file(self, filename: str) -> bool:
         """
@@ -96,11 +99,19 @@ class ReviewService:
             language,
         )
 
+        print(
+            f"[{filename}] Cache Key: {cache_key}"
+        )
+
         review = get_cached_review(cache_key)
+
+        print(
+            f"[{filename}] Cache Found: {review is not None}"
+        )
 
         if review is None:
 
-            review = groq_service.review_code(
+            review = ai_service.review_code(
                 patch,
                 language,
             )
@@ -109,6 +120,10 @@ class ReviewService:
                 cache_key,
                 review,
             )
+
+            print(
+                f"[{filename}] Stored in cache"
+         )
 
             logger.info(
                 "Cache MISS: %s",
@@ -191,6 +206,8 @@ class ReviewService:
         summaries = []
         issues = []
 
+        ai_failures = 0
+
         review_tasks = []
 
         severity_count = {
@@ -268,6 +285,9 @@ class ReviewService:
                     filename = result["filename"]
                     review = result["review"]
 
+                    if not review.get("success", True):
+                        ai_failures += 1
+
                     summary = review.get("summary")
 
                     if summary:
@@ -296,6 +316,8 @@ class ReviewService:
 
                 except Exception:
 
+                    ai_failures += 1
+
                     logger.exception(
                         "Error reviewing file."
                     )
@@ -312,6 +334,11 @@ class ReviewService:
                 continue
 
             try:
+
+                print("=" * 60)
+                print(f"Posting comment -> File: {issue['file']}")
+                print(f"Line: {issue['line']}")
+                print("=" * 60)
 
                 github_service.create_inline_review_comment(
                     pull_number=pull_number,
@@ -346,8 +373,8 @@ class ReviewService:
             "review_duration_seconds": review_duration,
             "files_reviewed": files_reviewed,
             "files_skipped": 0,
-            "ai_requests": files_reviewed,
-            "ai_failures": 0,
+            "ai_requests": cache_stats["cache_misses"],
+            "ai_failures": ai_failures,
 
             "cache_hits": cache_stats["cache_hits"],
             "cache_misses": cache_stats["cache_misses"],
@@ -466,6 +493,32 @@ Cache Size: {cache_stats["cache_size"]}
         )
 
         logger.info("Review completed.")
+
+        try:
+            logger.info("Saving review history...")
+
+            review_id= history_service.save_review(
+                repository=f"{settings.GITHUB_OWNER}/{settings.GITHUB_REPOSITORY}",
+                pull_request=pull_number,
+                quality_score=quality["score"],
+                provider="Groq",
+                review_duration=review_duration,
+                total_files=files_reviewed,
+                total_issues=total_issues,
+                review_data={
+                    "quality": quality,
+                    "statistics": statistics,
+                    "analytics": analytics.__dict__,
+                    "recommendations": recommendations.recommendations,
+                    "summary": report,
+                    "issues": issues,
+                },
+            )
+
+            logger.info("Review saved with ID: %s", review_id)
+
+        except Exception as e:
+            logger.exception("Failed to save review history :%s",e)
 
         return {
             "quality": {

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from backend.api.routes.github import router as github_router
 from backend.api.routes.review import router as review_router
+from backend.api.routes.history import router as history_router
 from backend.core.constants import API_PREFIX
 from backend.core.logger import logger
 from backend.core.settings import settings
@@ -46,4 +47,13 @@ app.include_router(
     github_router,
     prefix=f"{API_PREFIX}/github",
     tags=["GitHub"],
+)
+
+# ----------------------------
+# History Routes
+# ----------------------------
+app.include_router(
+    history_router,
+    prefix=API_PREFIX,
+    tags=["Review History"],
 )

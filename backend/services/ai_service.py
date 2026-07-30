@@ -1,17 +1,97 @@
 """
-AI service.
+AI Service.
 
-Delegates AI code reviews to the configured provider.
+Routes AI review requests to the configured provider.
 """
 
-from backend.services.groq_service import groq_service
+from backend.core.logger import logger
+from backend.services.providers.groq_provider import (
+    groq_provider,
+)
+from backend.services.providers.gemini_provider import (
+    gemini_provider,
+)
 
 
 class AIService:
-    """AI review service."""
+    """
+    AI Router.
 
-    def review_code(self, code: str, language: str) -> str:
-        return groq_service.review_code(code, language)
+    Currently supports:
+    - Groq
+
+    Future:
+    - Gemini
+    - OpenAI
+    - Ollama
+    """
+
+    def __init__(self):
+
+        self.providers = [
+            groq_provider,
+            gemini_provider,
+        ]
+
+    def review_code(
+        self,
+        code: str,
+        language: str,
+    ) -> dict:
+        """
+        Review code using available providers.
+
+        Automatically falls back when a provider
+        reaches its rate limit.
+        """
+
+        last_response = None
+
+        for provider in self.providers:
+
+            logger.info(
+                "Trying AI Provider: %s",
+                provider.provider_name,
+            )
+
+            review = provider.review_code(
+                code,
+                language,
+            )
+
+            review["provider"] = provider.provider_name
+
+            if review.get("success"):
+
+                logger.info(
+                    "Provider succeeded: %s",
+                    provider.provider_name,
+                )
+
+                return review
+
+            logger.warning(
+                "%s failed (%s)",
+                provider.provider_name,
+                review.get("error"),
+            )
+
+            last_response = review
+
+            if review.get("error") != "RATE_LIMIT":
+                break
+
+        return last_response
+
+    def available_providers(self):
+        """
+        Return provider names.
+        """
+
+        return [
+            provider.provider_name
+            for provider in self.providers
+        ]
 
 
 ai_service = AIService()

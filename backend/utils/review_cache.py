@@ -1,174 +1,120 @@
 """
-Simple thread-safe in-memory cache for AI reviews.
+Persistent review cache backed by SQLite.
 """
 
 import hashlib
-from threading import Lock
-from typing import Any, Optional
 
 from backend.core.logger import logger
+from backend.utils.cache_db import cache_db
 
-# Cache storage
-review_cache: dict[str, Any] = {}
-
-# Thread lock
-cache_lock = Lock()
-
-# Cache statistics
 cache_hits = 0
 cache_misses = 0
 
-# Log after cache has been created
-logger.info(
-    "Review cache initialized. id=%s",
-    id(review_cache),
-)
 
-print(f"Review cache initialized. Cache id={id(review_cache)}")
-
-
-def generate_cache_key(code: str, language: str) -> str:
+def generate_cache_key(
+    patch: str,
+    language: str,
+) -> str:
     """
-    Generate a unique SHA-256 cache key using the
-    file content and programming language.
+    Generate a deterministic cache key from the code patch
+    and programming language.
     """
-    content = f"{language}:{code}"
-    key = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    print(
-        f"Generated key={key[:8]} "
-        f"language={language} "
-        f"length={len(code)}"
+    content = f"{language}:{patch}"
+
+    return hashlib.sha256(
+        content.encode("utf-8")
+    ).hexdigest()
+
+
+def get_cached_review(cache_key: str):
+    """
+    Retrieve a cached review.
+
+    Returns:
+        dict | None
+    """
+
+    global cache_hits
+    global cache_misses
+
+    review = cache_db.get_review(cache_key)
+
+    if review is None:
+
+        cache_misses += 1
+
+        logger.info(
+            "Cache MISS: %s",
+            cache_key,
+        )
+
+        return None
+
+    cache_hits += 1
+
+    logger.info(
+        "Cache HIT: %s",
+        cache_key,
     )
 
-    return key
+    return review
 
 
-def get_cached_review(key: str) -> Optional[Any]:
-    """
-    Return cached review if available.
-    Updates cache hit/miss statistics.
-    """
-    global cache_hits, cache_misses
-
-    with cache_lock:
-
-        print(
-            f"Cache id={id(review_cache)} "
-            f"size={len(review_cache)}"
-        )
-
-        review = review_cache.get(key)
-
-        print(
-            f"Lookup key={key[:8]} "
-            f"found={review is not None}"
-        )
-
-        if review is not None:
-            cache_hits += 1
-
-            print(
-                f"CACHE HIT "
-                f"hits={cache_hits} "
-                f"misses={cache_misses} "
-                f"key={key[:8]}"
-            )
-
-            logger.info(
-                "[CACHE HIT] hits=%s misses=%s key=%s",
-                cache_hits,
-                cache_misses,
-                key[:8],
-            )
-
-        else:
-            cache_misses += 1
-
-            print(
-                f"CACHE MISS "
-                f"hits={cache_hits} "
-                f"misses={cache_misses} "
-                f"key={key[:8]}"
-            )
-
-            logger.info(
-                "[CACHE MISS] hits=%s misses=%s key=%s",
-                cache_hits,
-                cache_misses,
-                key[:8],
-            )
-
-        return review
-
-
-def store_review(key: str, review: Any) -> None:
+def store_review(
+    cache_key: str,
+    review: dict,
+):
     """
     Store a review in the cache.
     """
-    with cache_lock:
 
-        review_cache[key] = review
+    cache_db.store_review(
+        cache_key,
+        review,
+    )
 
-        print(
-            f"Stored key={key[:8]} "
-            f"cache_size={len(review_cache)}"
-        )
-
-        logger.info(
-            "Review stored in cache. Cache id=%s size=%s",
-            id(review_cache),
-            len(review_cache),
-        )
+    logger.info(
+        "Stored review in cache: %s",
+        cache_key,
+    )
 
 
-def clear_cache() -> None:
+def clear_cache():
     """
-    Clear the entire cache.
+    Remove every cached review.
     """
-    global cache_hits, cache_misses
 
-    with cache_lock:
+    global cache_hits
+    global cache_misses
 
-        review_cache.clear()
+    cache_db.clear_cache()
 
-        cache_hits = 0
-        cache_misses = 0
+    cache_hits = 0
+    cache_misses = 0
 
-        print(
-            f"Cache cleared. "
-            f"Cache id={id(review_cache)}"
-        )
-
-        logger.info(
-            "Cache cleared. Cache id=%s",
-            id(review_cache),
-        )
+    logger.info("Review cache cleared.")
 
 
-def get_cache_size() -> int:
-    """
-    Return the number of cached reviews.
-    """
-    with cache_lock:
-        return len(review_cache)
-
-
-def get_cache_statistics() -> dict[str, float]:
+def get_cache_statistics():
     """
     Return cache statistics.
     """
+
     total_requests = cache_hits + cache_misses
 
     hit_rate = (
-        (cache_hits / total_requests) * 100
-        if total_requests > 0
+        round(
+            (cache_hits / total_requests) * 100,
+            2,
+        )
+        if total_requests
         else 0.0
     )
 
     return {
         "cache_hits": cache_hits,
         "cache_misses": cache_misses,
-        "cache_size": get_cache_size(),
-        "cache_hit_rate": round(hit_rate, 2),
+        "cache_hit_rate": hit_rate,
+        "cache_size": cache_db.get_cache_size(),
     }
