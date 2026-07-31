@@ -4,6 +4,7 @@ from backend.api.routes.github import router as github_router
 from backend.api.routes.review import router as review_router
 from backend.api.routes.history import router as history_router
 from backend.api.routes.dashboard import router as dashboard_router
+from backend.api.routes.webhooks import router as webhook_router
 from backend.core.constants import API_PREFIX
 from backend.core.logger import logger
 from backend.core.settings import settings
@@ -66,4 +67,10 @@ app.include_router(
     dashboard_router,
     prefix=API_PREFIX,
     tags=["Dashboard"],
+)
+
+app.include_router(
+    webhook_router,
+    prefix=API_PREFIX,
+    tags=["Webhooks"],
 )

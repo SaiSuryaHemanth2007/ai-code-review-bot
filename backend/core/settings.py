@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = ""
     GITHUB_OWNER: str = ""
     GITHUB_REPOSITORY: str = ""
+    GITHUB_WEBHOOK_SECRET: str = ""
 
 
 @lru_cache
