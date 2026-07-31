@@ -1,8 +1,7 @@
 venv/
-**pycache**/
+__pycache__/
 *.pyc
 .env
 .vscode/
-.idea/
-.pytest_cache/
 .DS_Store
+Thumbs.db
