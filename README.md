@@ -55,10 +55,10 @@ Automatically reviews GitHub Pull Requests, generates intelligent AI feedback, p
         ▼                    ▼                    ▼
   Background Jobs      AI Service Router     Review Cache
         │                    │                    │
-        │             ┌──────┴──────┐            │
-        │             │             │            │
-        ▼             ▼             ▼            ▼
-     Groq AI      Gemini AI      Future AI    SQLite
+        │             ┌──────┴──────┐             │
+        │             │             │             │
+        ▼             ▼             ▼             ▼
+     Groq AI      Gemini AI      Future AI     SQLite
         │
         ▼
  Inline GitHub Review Comments
