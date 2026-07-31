@@ -9,6 +9,7 @@ from github.GithubException import GithubException
 
 from backend.core.logger import logger
 from backend.core.settings import settings
+from backend.utils.retry import retry
 
 
 class GitHubService:
@@ -19,7 +20,9 @@ class GitHubService:
     def __init__(self):
         auth = Auth.Token(settings.GITHUB_TOKEN)
         self.github = Github(auth=auth)
-
+    
+    
+    @retry(retries=3, delay=1, backoff=2)
     def get_repository(self):
         """Return the configured repository."""
 
@@ -32,6 +35,8 @@ class GitHubService:
 
         return self.github.get_repo(repo_name)
 
+    
+    @retry(retries=3, delay=1, backoff=2)
     def get_repository_info(self):
         """Return basic repository information."""
 
@@ -51,8 +56,9 @@ class GitHubService:
 
         except GithubException as exc:
             logger.exception("GitHub connection failed.")
-            raise Exception(str(exc))
-
+            raise Exception(str(exc)) from exc
+    
+    @retry(retries=3, delay=1, backoff=2)   
     def get_pull_requests(self):
         """Return all open pull requests."""
 
@@ -80,6 +86,8 @@ class GitHubService:
             logger.exception("Failed to fetch pull requests.")
             raise Exception(str(exc))
 
+    
+    @retry(retries=3, delay=1, backoff=2)
     def get_pull_request_files(self, pull_number: int):
         """Return the files changed in a pull request."""
 
@@ -113,6 +121,8 @@ class GitHubService:
             logger.exception("Failed to fetch pull request files.")
             raise Exception(str(exc))
 
+    
+    @retry(retries=3, delay=1, backoff=2)
     def upsert_pull_request_comment(
         self,
         pull_number: int,
@@ -155,6 +165,8 @@ class GitHubService:
             )
             raise Exception(str(exc))
 
+    
+    @retry(retries=3, delay=1, backoff=2)
     def create_inline_review_comment(
         self,
         pull_number: int,

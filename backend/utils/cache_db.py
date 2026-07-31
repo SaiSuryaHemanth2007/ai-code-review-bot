@@ -158,5 +158,19 @@ class CacheDatabase:
 
             return cursor.fetchone()[0]
 
+    def get_total_reviews(self) -> int:
+        """
+        Returns the total number of cached reviews.
+        """
+
+        return self.get_cache_size()
+
+    def get_cached_reviews(self) -> int:
+        """
+        Returns the number of cached reviews.
+        """
+
+        return self.get_cache_size()
+
 
 cache_db = CacheDatabase()

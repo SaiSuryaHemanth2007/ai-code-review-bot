@@ -5,15 +5,22 @@ from backend.api.routes.review import router as review_router
 from backend.api.routes.history import router as history_router
 from backend.api.routes.dashboard import router as dashboard_router
 from backend.api.routes.webhooks import router as webhook_router
+from backend.api.routes.health import router as health_router
+from backend.api.routes.metrics import router as metrics_router
 from backend.core.constants import API_PREFIX
 from backend.core.logger import logger
 from backend.core.settings import settings
+from backend.core.exception_handler import (
+    register_exception_handlers,
+)
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered GitHub Pull Request Review Bot",
     version=settings.APP_VERSION,
 )
+
+register_exception_handlers(app)
 
 
 @app.on_event("startup")
@@ -73,4 +80,16 @@ app.include_router(
     webhook_router,
     prefix=API_PREFIX,
     tags=["Webhooks"],
+)
+
+app.include_router(
+    health_router,
+    prefix="/api/v1",
+    tags=["Health"],
+)
+
+app.include_router(
+    metrics_router,
+    prefix="/api/v1",
+    tags=["Metrics"],
 )
