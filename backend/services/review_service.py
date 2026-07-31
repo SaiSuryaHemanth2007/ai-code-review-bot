@@ -12,6 +12,7 @@ from backend.services.github_service import github_service
 from backend.services.ai_service import ai_service
 from backend.core.settings import settings
 from backend.utils.quality_score import QualityScore
+from backend.utils.diff_mapper import diff_mapper
 from backend.utils.duplicate_detector import DuplicateDetector
 from backend.utils.review_analytics import generate_review_analytics
 from backend.utils.review_recommendations import (
@@ -25,7 +26,7 @@ from backend.utils.review_cache import (
     clear_cache,
 )
 from backend.services.history_service import history_service
-import time
+
 
 
 SUPPORTED_EXTENSIONS = {
@@ -308,9 +309,7 @@ class ReviewService:
                         severity = issue["severity"]
 
                         if severity in severity_count:
-                            severity_count[
-                                severity
-                            ] += 1
+                            severity_count[severity] += 1
 
                         issues.append(issue)
 
@@ -335,9 +334,33 @@ class ReviewService:
 
             try:
 
+                patch = None
+
+                for file in files:
+                    if file["filename"] == issue["file"]:
+                        patch = file.get("patch", "")
+                        break
+
+                if patch:
+
+                    changed_lines = diff_mapper.extract_changed_lines(
+                        patch
+                    )
+
+                    if changed_lines:
+
+                        if issue["line"] not in changed_lines:
+
+                            issue["line"] = min(
+                                changed_lines,
+                                key=lambda x: abs(
+                                    x - issue["line"]
+                                ),
+                            )
+
                 print("=" * 60)
                 print(f"Posting comment -> File: {issue['file']}")
-                print(f"Line: {issue['line']}")
+                print(f"Mapped Line: {issue['line']}")
                 print("=" * 60)
 
                 github_service.create_inline_review_comment(
