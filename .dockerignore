@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+
+# Git
+.git/
+.gitignore
+
+# Pytest cache
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Python environment files
+.env
+
+# SQLite databases
+backend/data/*.db
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+*.log
