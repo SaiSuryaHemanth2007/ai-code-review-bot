@@ -2,13 +2,19 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from backend.core.logger import logger
 from backend.schemas.review_request import ReviewRequest
-from backend.schemas.review_response import ReviewResponse
+from backend.schemas.review_response import (
+    ReviewResponse,
+    ReviewResult,
+    QualityResponse,
+    ReviewIssue,
+)
 from backend.services.review_service import review_service
 from backend.jobs.job_manager import job_manager
 from backend.jobs.review_worker import review_worker
 from backend.schemas.job_response import JobResponse
 from backend.schemas.job_status import JobStatusResponse
 from backend.core.settings import settings
+from backend.utils.quality_score import QualityScore
 
 router = APIRouter()
 
@@ -22,15 +28,59 @@ async def review_code(request: ReviewRequest):
     try:
         logger.info("Review request received.")
 
-        review = review_service.review(
+        ai_review = review_service.review(
             request.code,
             request.language,
+        )
+
+        issues = ai_review.get("issues", [])
+
+        # Calculate quality score from issues
+        critical = sum(
+            1 for issue in issues
+            if issue.get("severity", "").upper() == "CRITICAL"
+        )
+
+        high = sum(
+            1 for issue in issues
+            if issue.get("severity", "").upper() == "HIGH"
+        )
+
+        medium = sum(
+            1 for issue in issues
+            if issue.get("severity", "").upper() == "MEDIUM"
+        )
+
+        low = sum(
+            1 for issue in issues
+            if issue.get("severity", "").upper() == "LOW"
+        )
+
+        quality = QualityScore.calculate(
+            critical=critical,
+            high=high,
+            medium=medium,
+            low=low,
         )
 
         return ReviewResponse(
             success=True,
             language=request.language,
-            review=review,
+            review=ReviewResult(
+                quality=QualityResponse(
+                    score=quality["score"],
+                    grade=quality["grade"],
+                    stars=quality["stars"],
+                ),
+                summary=ai_review.get(
+                    "summary",
+                    "No summary generated.",
+                ),
+                issues=[
+                    ReviewIssue(**issue)
+                    for issue in issues
+                ],
+            ),
         )
 
     except Exception as exc:
@@ -41,6 +91,7 @@ async def review_code(request: ReviewRequest):
             detail=str(exc),
         )
 
+
 @router.post(
     "/review/start",
     response_model=JobResponse,
@@ -50,10 +101,6 @@ def start_review(
     pull_number: int,
     background_tasks: BackgroundTasks,
 ):
-    """
-    Starts an AI review as a background job.
-    """
-
     repository = (
         f"{settings.GITHUB_OWNER}/"
         f"{settings.GITHUB_REPOSITORY}"
@@ -82,9 +129,6 @@ def start_review(
     summary="List all review jobs",
 )
 def get_all_jobs():
-    """
-    Returns all review jobs.
-    """
     return job_manager.get_all_jobs()
 
 
@@ -94,9 +138,6 @@ def get_all_jobs():
     summary="Get review job status",
 )
 def get_job(job_id: str):
-    """
-    Returns a single review job.
-    """
 
     job = job_manager.get_job(job_id)
 
@@ -107,10 +148,3 @@ def get_job(job_id: str):
         )
 
     return JobStatusResponse(**job)
-
-@router.get("/review/jobs")
-def get_all_jobs():
-    """
-    Returns all review jobs.
-    """
-    return job_manager.get_all_jobs()
