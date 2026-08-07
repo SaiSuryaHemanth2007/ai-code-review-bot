@@ -13,7 +13,7 @@ from backend.utils.retry import retry
 
 
 class GitHubService:
-    """Service for interacting with GitHub."""
+    """Service for interacting with the GitHub API."""
 
     AI_REVIEW_HEADER = "# 🤖 AI Code Review Report"
 
@@ -83,13 +83,13 @@ class GitHubService:
                 ).totalCount,
             }
 
-        except GithubException as exc:
+        except GithubException:
 
             logger.exception(
                 "GitHub connection failed."
             )
 
-            raise Exception(str(exc)) from exc
+            raise
 
     @retry(retries=3, delay=1, backoff=2)
     def get_pull_requests(self):
@@ -117,13 +117,13 @@ class GitHubService:
 
             return result
 
-        except GithubException as exc:
+        except GithubException:
 
             logger.exception(
                 "Failed to fetch pull requests."
             )
 
-            raise Exception(str(exc)) from exc
+            raise
 
     @retry(retries=3, delay=1, backoff=2)
     def get_pull_request_files(
@@ -162,13 +162,13 @@ class GitHubService:
 
             return result
 
-        except GithubException as exc:
+        except GithubException:
 
             logger.exception(
                 "Failed to fetch pull request files."
             )
 
-            raise Exception(str(exc)) from exc
+            raise
 
     @retry(retries=3, delay=1, backoff=2)
     def upsert_pull_request_comment(
@@ -188,15 +188,18 @@ class GitHubService:
                 pull_number
             )
 
-            comments = (
-                pull.get_issue_comments()
-            )
+            comments = pull.get_issue_comments()
 
             for existing_comment in comments:
 
                 if existing_comment.body.startswith(
                     self.AI_REVIEW_HEADER
                 ):
+
+                    logger.info(
+                        "Updating AI review comment (ID=%s)",
+                        existing_comment.id,
+                    )
 
                     existing_comment.edit(
                         comment
@@ -208,21 +211,22 @@ class GitHubService:
 
                     return
 
-            pull.create_issue_comment(
+            created_comment = pull.create_issue_comment(
                 comment
             )
 
             logger.info(
-                "Created new AI review comment."
+                "Created new AI review comment (ID=%s).",
+                created_comment.id,
             )
 
-        except GithubException as exc:
+        except GithubException:
 
             logger.exception(
                 "Failed to create/update PR comment."
             )
 
-            raise Exception(str(exc)) from exc
+            raise
 
     @retry(retries=3, delay=1, backoff=2)
     def create_inline_review_comment(
@@ -248,9 +252,14 @@ class GitHubService:
                 pull.get_commits()
             )
 
+            if not commits:
+                raise RuntimeError(
+                    "No commits found for pull request."
+                )
+
             latest_commit = commits[-1]
 
-            pull.create_review_comment(
+            review_comment = pull.create_review_comment(
                 body=comment,
                 commit=latest_commit,
                 path=file_path,
@@ -259,18 +268,19 @@ class GitHubService:
             )
 
             logger.info(
-                "Successfully posted inline review to %s (line %s)",
+                "Successfully posted inline review to %s (line %s). Review ID=%s",
                 file_path,
                 line,
+                review_comment.id,
             )
 
-        except GithubException as exc:
+        except GithubException:
 
             logger.exception(
                 "Failed to post inline review."
             )
 
-            raise Exception(str(exc)) from exc
+            raise
 
 
 github_service = GitHubService()
