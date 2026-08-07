@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.core.settings import settings
 from backend.schemas.pull_request_review_response import (
@@ -15,7 +15,11 @@ router = APIRouter()
     "/cache",
     summary="Review Cache Statistics",
 )
-async def cache():
+async def cache() -> dict:
+    """
+    Return review cache statistics.
+    """
+
     return get_cache_statistics()
 
 
@@ -23,7 +27,17 @@ async def cache():
     "/debug",
     summary="Debug Environment",
 )
-async def debug():
+async def debug() -> dict:
+    """
+    Development-only environment diagnostics.
+    """
+
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=404,
+            detail="Not Found",
+        )
+
     return {
         "github_token_exists": bool(settings.GITHUB_TOKEN),
         "github_token_length": len(settings.GITHUB_TOKEN),
@@ -36,7 +50,23 @@ async def debug():
     "/whoami",
     summary="GitHub Authentication Test",
 )
-async def github_whoami():
+async def github_whoami() -> dict:
+    """
+    Development-only GitHub authentication check.
+    """
+
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=404,
+            detail="Not Found",
+        )
+
+    if github_service.github is None:
+        raise HTTPException(
+            status_code=503,
+            detail="GitHub client is unavailable.",
+        )
+
     user = github_service.github.get_user()
 
     return {
@@ -49,7 +79,11 @@ async def github_whoami():
     "/repository",
     summary="Repository Information",
 )
-async def repository_info():
+async def repository_info() -> dict:
+    """
+    Return configured repository information.
+    """
+
     return github_service.get_repository_info()
 
 
@@ -57,7 +91,11 @@ async def repository_info():
     "/pulls",
     summary="List Open Pull Requests",
 )
-async def list_pull_requests():
+async def list_pull_requests() -> list:
+    """
+    Return all open pull requests.
+    """
+
     return github_service.get_pull_requests()
 
 
@@ -65,8 +103,16 @@ async def list_pull_requests():
     "/pulls/{pull_number}/files",
     summary="Get Pull Request Files",
 )
-async def get_pull_request_files(pull_number: int):
-    return github_service.get_pull_request_files(pull_number)
+async def get_pull_request_files(
+    pull_number: int,
+) -> list:
+    """
+    Return files changed in a pull request.
+    """
+
+    return github_service.get_pull_request_files(
+        pull_number
+    )
 
 
 @router.post(
@@ -74,5 +120,13 @@ async def get_pull_request_files(pull_number: int):
     response_model=PullRequestReviewResponse,
     summary="Review Pull Request",
 )
-async def review_pull_request(pull_number: int):
-    return review_service.review_pull_request(pull_number)
+async def review_pull_request(
+    pull_number: int,
+) -> PullRequestReviewResponse:
+    """
+    Run an AI review for the specified pull request.
+    """
+
+    return review_service.review_pull_request(
+        pull_number
+    )

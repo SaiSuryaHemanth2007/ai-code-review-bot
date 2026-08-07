@@ -5,6 +5,7 @@ from fastapi import (
     Request,
 )
 
+from backend.core.logger import logger
 from backend.core.settings import settings
 from backend.core.webhook_security import webhook_security
 from backend.schemas.webhook_status import WebhookStatus
@@ -21,35 +22,60 @@ router = APIRouter()
 async def github_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-):
+) -> WebhookStatus:
     """
     Receive GitHub webhook events.
     """
 
-    # Verify webhook signature only in production
-    if not settings.DEBUG:
-        await webhook_security.verify_signature(request)
-
-    # Parse GitHub payload
     try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid or empty JSON payload.",
+
+        # Verify webhook signature only in production
+        if not settings.DEBUG:
+            await webhook_security.verify_signature(
+                request
+            )
+
+        # Parse GitHub payload
+        try:
+            payload = await request.json()
+
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid or empty JSON payload.",
+            )
+
+        # Get GitHub event header
+        event = request.headers.get(
+            "X-GitHub-Event"
         )
 
-    # Get GitHub event header
-    event = request.headers.get(
-        "X-GitHub-Event",
-        "",
-    )
+        if not event:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing GitHub event header.",
+            )
 
-    # Process webhook
-    result = webhook_service.process_webhook(
-        event=event,
-        payload=payload,
-        background_tasks=background_tasks,
-    )
+        result = webhook_service.process_webhook(
+            event=event,
+            payload=payload,
+            background_tasks=background_tasks,
+        )
 
-    return WebhookStatus(**result)
+        return WebhookStatus(
+            **result
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception:
+
+        logger.exception(
+            "Failed to process GitHub webhook."
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Webhook processing failed.",
+        )
