@@ -4,6 +4,7 @@ Groq AI Provider.
 Implements the BaseAIProvider interface.
 """
 
+from backend.core.logger import logger
 from backend.services.groq_service import groq_service
 from backend.services.providers.base_provider import (
     BaseAIProvider,
@@ -25,8 +26,12 @@ class GroqProvider(BaseAIProvider):
         language: str,
     ) -> dict:
         """
-        Delegate review generation to the existing Groq service.
+        Delegate review generation to the Groq service.
         """
+
+        logger.debug(
+            "Using Groq provider."
+        )
 
         return groq_service.review_code(
             code,
@@ -37,8 +42,9 @@ class GroqProvider(BaseAIProvider):
         """
         Provider health check.
 
-        Since the Groq client is initialized during startup,
-        we'll assume it's healthy if initialization succeeded.
+        The Groq service is initialized during startup.
+        Future implementations can perform an API health
+        check here if needed.
         """
 
         return True
