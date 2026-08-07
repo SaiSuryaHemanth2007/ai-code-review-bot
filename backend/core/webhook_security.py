@@ -1,3 +1,7 @@
+"""
+GitHub webhook security verification.
+"""
+
 import hashlib
 import hmac
 
@@ -13,7 +17,19 @@ class WebhookSecurity:
 
     @staticmethod
     async def verify_signature(request: Request) -> bool:
-        signature = request.headers.get("X-Hub-Signature-256")
+        """
+        Verify the GitHub webhook signature.
+        """
+
+        # Ensure the webhook secret is configured
+        if not settings.GITHUB_WEBHOOK_SECRET:
+            raise RuntimeError(
+                "GITHUB_WEBHOOK_SECRET is not configured."
+            )
+
+        signature = request.headers.get(
+            "X-Hub-Signature-256"
+        )
 
         if signature is None:
             raise HTTPException(
