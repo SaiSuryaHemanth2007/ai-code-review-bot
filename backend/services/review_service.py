@@ -233,6 +233,9 @@ class ReviewService:
             "find_admin",
             "find_moderator",
             "find_reviewer",
+            "get_user",
+            "delete_user",
+            "search_user",
         )
 
         if (
@@ -241,6 +244,8 @@ class ReviewService:
                 "duplication" in comment
                 or "duplicated" in comment
                 or "duplicate" in comment
+                or "similar structure" in comment
+                or "similar structures" in comment
             )
             and any(name in comment for name in helper_names)
         ):

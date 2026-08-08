@@ -35,3 +35,31 @@ def test_filters_small_helper_duplication_false_positive():
     }
 
     assert service._is_false_positive_issue(issue) is True
+
+def test_filters_calculate_average_sum_suggestion_false_positive():
+    service = ReviewService()
+
+    issue = {
+        "category": "Performance",
+        "comment": (
+            "The calculate_average function can be simplified "
+            "using the built-in sum function."
+        ),
+    }
+
+    assert service._is_false_positive_issue(issue) is True
+
+
+def test_filters_get_delete_search_helper_duplication_false_positive():
+    service = ReviewService()
+
+    issue = {
+        "category": "Maintainability",
+        "comment": (
+            "The get_user, delete_user, and search_user functions "
+            "have similar structures and could be refactored "
+            "for better maintainability."
+        ),
+    }
+
+    assert service._is_false_positive_issue(issue) is True
