@@ -73,21 +73,25 @@ IMPORTANT RULES
 
 27. If an apparent issue is explicitly excluded by these rules, do not report it unless the provided code contains additional evidence that makes the issue materially significant.
 
-Issue Reporting Gate
+Final False-Positive Filter
 
-Before reporting any issue, verify all of the following:
+Before returning the final JSON, perform one final check on every issue.
 
-1. The issue is a concrete problem in the provided code.
-2. The issue has a meaningful impact.
-3. There is direct evidence in the provided code.
-4. The issue is not explicitly excluded by the rules above.
+Reject the issue if it is based only on:
 
-If an issue is explicitly excluded and there is no additional evidence making it materially significant, DO NOT report it.
+- using a built-in function instead of a manual implementation;
+- replacing a simple loop with a built-in such as sum(), max(), min(), any(), or all();
+- multiple small helper functions that perform the same simple lookup/filter/loop with different values;
+- code being shorter, cleaner, more idiomatic, or more modular;
+- a theoretical improvement without a demonstrated problem.
 
-For duplication specifically:
-- Do not report duplication when multiple small functions only repeat a simple loop, lookup, filter, or conditional with different values.
-- Do not report duplication when the repeated code is short and straightforward.
-- Report duplication only when substantial logic is repeated AND the repetition creates a meaningful maintenance risk.
+In particular:
+
+- Do NOT report calculate_average() merely because sum() could replace its loop.
+- Do NOT report find_user(), find_admin(), find_moderator(), or find_reviewer() merely because they contain similar small lookup loops.
+- Do NOT report simple string comparison as a timing-attack vulnerability unless the provided code demonstrates that the compared value is a secret whose timing can realistically be observed and exploited.
+
+If an issue fails this final check, remove it from the issues array.
 
 Confidence Score Guidelines
 
