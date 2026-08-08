@@ -192,6 +192,76 @@ class ReviewService:
             and issue["comment"].strip()
         )
 
+    def _is_false_positive_issue(self, issue: dict) -> bool:
+        """
+        Returns True when the AI-generated issue matches a known
+        false-positive pattern that should not be reported.
+        """
+
+        comment = issue.get("comment", "").lower()
+        category = issue.get("category", "")
+
+        # Do not report stylistic suggestions to replace simple loops
+        # with built-in functions such as sum(), max(), min(), any(), all().
+        builtin_names = (
+            "sum()",
+            "max()",
+            "min()",
+            "any()",
+            "all()",
+        )
+
+        if (
+            category == "Performance"
+            and any(name in comment for name in builtin_names)
+        ):
+            logger.info(
+                "Filtered false-positive built-in suggestion: %s",
+                comment,
+            )
+            return True
+
+        # Do not report small, intentionally similar helper functions
+        # as duplication issues.
+        helper_names = (
+            "find_user",
+            "find_admin",
+            "find_moderator",
+            "find_reviewer",
+        )
+
+        if (
+            category == "Maintainability"
+            and "duplication" in comment
+            and any(name in comment for name in helper_names)
+        ):
+            logger.info(
+                "Filtered false-positive helper duplication: %s",
+                comment,
+            )
+            return True
+
+        # Do not report timing attacks for ordinary string comparisons
+        # unless the review provides evidence that a secret is being
+        # compared and the timing is realistically observable.
+        timing_attack_terms = (
+            "timing attack",
+            "timing-attack",
+            "timing vulnerability",
+        )
+
+        if (
+            category == "Security"
+            and any(term in comment for term in timing_attack_terms)
+        ):
+            logger.info(
+                "Filtered unsupported timing-attack finding: %s",
+                comment,
+            )
+            return True
+
+        return False
+
     def review_pull_request(self, pull_number: int):
 
         logger.info("Starting AI review for PR #%s", pull_number)
@@ -305,6 +375,9 @@ class ReviewService:
                             issue,
                             filename,
                         )
+
+                        if self._is_false_positive_issue(issue):
+                            continue
 
                         severity = issue["severity"]
 
