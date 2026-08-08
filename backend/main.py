@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from backend.api.routes.github import router as github_router
@@ -14,18 +16,21 @@ from backend.core.exception_handler import (
     register_exception_handlers,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Application started successfully.")
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="AI-powered GitHub Pull Request Review Bot",
     version=settings.APP_VERSION,
+    lifespan=lifespan,
 )
 
 register_exception_handlers(app)
-
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Application started successfully.")
 
 
 @app.get("/")
@@ -43,38 +48,46 @@ async def root():
 # ----------------------------
 # Review Routes
 # ----------------------------
+
 app.include_router(
     review_router,
     prefix=API_PREFIX,
     tags=["Code Review"],
 )
 
+
 # ----------------------------
 # GitHub Routes
 # ----------------------------
+
 app.include_router(
     github_router,
     prefix=f"{API_PREFIX}/github",
     tags=["GitHub"],
 )
 
+
 # ----------------------------
 # History Routes
 # ----------------------------
+
 app.include_router(
     history_router,
     prefix=API_PREFIX,
     tags=["Review History"],
 )
 
+
 # ----------------------------
 # Dashboard Routes
 # ----------------------------
+
 app.include_router(
     dashboard_router,
     prefix=API_PREFIX,
     tags=["Dashboard"],
 )
+
 
 app.include_router(
     webhook_router,
@@ -82,11 +95,13 @@ app.include_router(
     tags=["Webhooks"],
 )
 
+
 app.include_router(
     health_router,
     prefix="/api/v1",
     tags=["Health"],
 )
+
 
 app.include_router(
     metrics_router,
