@@ -29,6 +29,11 @@ IMPORTANT RULES
 8. The response must be valid JSON.
 9. Include a confidence score for every issue.
 10. Include exactly one category for every issue.
+11. For security issues, verify the actual data flow before reporting a vulnerability.
+12. Do NOT report SQL injection when user-controlled values are safely passed through parameterized queries, prepared statements, or bound parameters.
+13. Report SQL injection only when untrusted input is directly concatenated, interpolated, or formatted into an SQL statement without parameterization.
+14. Consider the complete provided code before reporting a security issue. Do not flag a pattern as vulnerable when the surrounding code demonstrates that the input is safely handled.
+15. When a potential issue has an obvious safe implementation in the provided code, do not report the issue unless there is evidence that the safe implementation is ineffective.
 
 Confidence Score Guidelines
 
@@ -54,18 +59,18 @@ Use exactly one of the following categories:
 Return exactly this schema:
 
 {
-  "summary": "Overall review summary",
-  "issues": [
-    {
-      "file": "",
-      "line": 1,
-      "severity": "LOW",
-      "category": "Security",
-      "confidence": 95,
-      "comment": "Describe the issue.",
-      "suggestion": "Provide a concise fix."
-    }
-  ]
+"summary": "Overall review summary",
+"issues": [
+{
+"file": "",
+"line": 1,
+"severity": "LOW",
+"category": "Security",
+"confidence": 95,
+"comment": "Describe the issue.",
+"suggestion": "Provide a concise fix."
+}
+]
 }
 
 Severity must be one of:
@@ -78,6 +83,6 @@ Severity must be one of:
 If there are no issues, return:
 
 {
-  "summary": "The code looks good. No significant issues were found.",
-  "issues": []
+"summary": "The code looks good. No significant issues were found.",
+"issues": []
 }
