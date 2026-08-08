@@ -73,6 +73,22 @@ IMPORTANT RULES
 
 27. If an apparent issue is explicitly excluded by these rules, do not report it unless the provided code contains additional evidence that makes the issue materially significant.
 
+Issue Reporting Gate
+
+Before reporting any issue, verify all of the following:
+
+1. The issue is a concrete problem in the provided code.
+2. The issue has a meaningful impact.
+3. There is direct evidence in the provided code.
+4. The issue is not explicitly excluded by the rules above.
+
+If an issue is explicitly excluded and there is no additional evidence making it materially significant, DO NOT report it.
+
+For duplication specifically:
+- Do not report duplication when multiple small functions only repeat a simple loop, lookup, filter, or conditional with different values.
+- Do not report duplication when the repeated code is short and straightforward.
+- Report duplication only when substantial logic is repeated AND the repetition creates a meaningful maintenance risk.
+
 Confidence Score Guidelines
 
 - 90-100 → Very High Confidence
