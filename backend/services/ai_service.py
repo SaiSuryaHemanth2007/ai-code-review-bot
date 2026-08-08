@@ -28,7 +28,6 @@ class AIService:
     """
 
     def __init__(self):
-
         self.providers = [
             groq_provider,
             gemini_provider,
@@ -37,18 +36,22 @@ class AIService:
     def _error_response(
         self,
         error: str,
-        summary: str,
+        provider: str | None = None,
     ) -> dict:
         """
         Return a standardized AI service error response.
         """
 
-        return {
+        response = {
             "success": False,
             "error": error,
-            "summary": summary,
             "issues": [],
         }
+
+        if provider:
+            response["provider"] = provider
+
+        return response
 
     def _execute_review(
         self,
@@ -56,17 +59,20 @@ class AIService:
         language: str,
     ) -> dict:
         """
-        Execute a review using the configured providers.
+        Execute a review using available providers.
 
-        Automatically falls back to the next provider
-        when a provider is unavailable, reaches its
-        rate limit, or fails.
+        Providers are checked before execution.
+        If a provider fails or reaches its rate limit,
+        the router attempts the next available provider.
         """
 
         if not self.providers:
+            logger.error(
+                "No AI providers are configured."
+            )
+
             return self._error_response(
                 "NO_PROVIDER_AVAILABLE",
-                "No AI provider is currently available.",
             )
 
         last_response = None
@@ -74,47 +80,29 @@ class AIService:
         for provider in self.providers:
 
             logger.info(
-                "Trying AI Provider: %s",
+                "Checking AI Provider: %s",
                 provider.provider_name,
             )
 
-            # Check provider availability before making
-            # an AI request.
             try:
-
                 if not provider.health_check():
-
                     logger.warning(
                         "Provider %s is unhealthy. Skipping.",
                         provider.provider_name,
                     )
-
-                    last_response = self._error_response(
-                        "PROVIDER_UNAVAILABLE",
-                        (
-                            f"{provider.provider_name} "
-                            "provider is currently unavailable."
-                        ),
-                    )
-
                     continue
 
             except Exception:
-
                 logger.exception(
                     "Health check failed for provider %s.",
                     provider.provider_name,
                 )
-
-                last_response = self._error_response(
-                    "HEALTH_CHECK_FAILED",
-                    (
-                        f"{provider.provider_name} "
-                        "provider health check failed."
-                    ),
-                )
-
                 continue
+
+            logger.info(
+                "Trying AI Provider: %s",
+                provider.provider_name,
+            )
 
             try:
 
@@ -132,22 +120,13 @@ class AIService:
 
                 review = self._error_response(
                     "PROVIDER_EXCEPTION",
-                    (
-                        f"{provider.provider_name} "
-                        "provider raised an unexpected exception."
-                    ),
+                    provider.provider_name,
                 )
 
-            if not isinstance(
-                review,
-                dict,
-            ):
+            if not isinstance(review, dict):
                 review = self._error_response(
                     "INVALID_RESPONSE",
-                    (
-                        f"{provider.provider_name} "
-                        "returned an invalid response."
-                    ),
+                    provider.provider_name,
                 )
 
             review["provider"] = (
@@ -171,15 +150,11 @@ class AIService:
 
             last_response = review
 
-            if review.get("error") != "RATE_LIMIT":
-                break
-
         if last_response is not None:
             return last_response
 
         return self._error_response(
-            "ALL_PROVIDERS_FAILED",
-            "All configured AI providers failed.",
+            "NO_HEALTHY_PROVIDER",
         )
 
     def review_code(
@@ -214,9 +189,9 @@ class AIService:
             language,
         )
 
-    def available_providers(self):
+    def available_providers(self) -> list[str]:
         """
-        Return provider names.
+        Return configured provider names.
         """
 
         return [
