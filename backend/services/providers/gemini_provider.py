@@ -21,9 +21,12 @@ class GeminiProvider(BaseAIProvider):
     """
 
     def __init__(self):
-        self.client = genai.Client(
-            api_key=settings.GEMINI_API_KEY
-        )
+        self.client = None
+
+        if settings.GEMINI_API_KEY:
+            self.client = genai.Client(
+                api_key=settings.GEMINI_API_KEY
+            )
 
     @property
     def provider_name(self) -> str:
@@ -37,6 +40,15 @@ class GeminiProvider(BaseAIProvider):
         """
         Review source code using Gemini.
         """
+        if self.client is None:
+            return {
+                "success": False,
+                "error": "NOT_CONFIGURED",
+                "summary": (
+                    "Gemini API key is not configured."
+                ),
+                "issues": [],
+            }
 
         logger.info(
             "Generating AI review using Gemini..."
@@ -241,14 +253,14 @@ Code to review:
                 "issues": [],
             }
 
-        def health_check(self) -> bool:
-            """
-            Check whether Gemini is configured.
-            """
+    def health_check(self) -> bool:
+        """
+        Check whether Gemini is configured.
+        """
 
-            return bool(
-                settings.GEMINI_API_KEY
-            )
+        return bool(
+            settings.GEMINI_API_KEY
+        )
 
 
 gemini_provider = GeminiProvider()
