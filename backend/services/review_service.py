@@ -203,17 +203,22 @@ class ReviewService:
 
         # Do not report stylistic suggestions to replace simple loops
         # with built-in functions such as sum(), max(), min(), any(), all().
-        builtin_names = (
+        builtin_terms = (
             "sum()",
+            "sum function",
             "max()",
+            "max function",
             "min()",
+            "min function",
             "any()",
+            "any function",
             "all()",
+            "all function",
         )
 
         if (
             category == "Performance"
-            and any(name in comment for name in builtin_names)
+            and any(term in comment for term in builtin_terms)
         ):
             logger.info(
                 "Filtered false-positive built-in suggestion: %s",
@@ -232,7 +237,11 @@ class ReviewService:
 
         if (
             category == "Maintainability"
-            and "duplication" in comment
+            and (
+                "duplication" in comment
+                or "duplicated" in comment
+                or "duplicate" in comment
+            )
             and any(name in comment for name in helper_names)
         ):
             logger.info(
@@ -246,7 +255,9 @@ class ReviewService:
         # compared and the timing is realistically observable.
         timing_attack_terms = (
             "timing attack",
+            "timing attacks",
             "timing-attack",
+            "timing-attack vulnerability",
             "timing vulnerability",
         )
 
