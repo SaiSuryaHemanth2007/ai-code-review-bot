@@ -34,6 +34,22 @@ class AIService:
             gemini_provider,
         ]
 
+    def _error_response(
+        self,
+        error: str,
+        summary: str,
+    ) -> dict:
+        """
+        Return a standardized AI service error response.
+        """
+
+        return {
+            "success": False,
+            "error": error,
+            "summary": summary,
+            "issues": [],
+        }
+
     def _execute_review(
         self,
         content: str,
@@ -43,14 +59,15 @@ class AIService:
         Execute a review using the configured providers.
 
         Automatically falls back to the next provider
-        when a provider reaches its rate limit or fails.
+        when a provider is unavailable, reaches its
+        rate limit, or fails.
         """
 
         if not self.providers:
-            return {
-                "success": False,
-                "error": "NO_PROVIDER_AVAILABLE",
-            }
+            return self._error_response(
+                "NO_PROVIDER_AVAILABLE",
+                "No AI provider is currently available.",
+            )
 
         last_response = None
 
@@ -60,6 +77,44 @@ class AIService:
                 "Trying AI Provider: %s",
                 provider.provider_name,
             )
+
+            # Check provider availability before making
+            # an AI request.
+            try:
+
+                if not provider.health_check():
+
+                    logger.warning(
+                        "Provider %s is unhealthy. Skipping.",
+                        provider.provider_name,
+                    )
+
+                    last_response = self._error_response(
+                        "PROVIDER_UNAVAILABLE",
+                        (
+                            f"{provider.provider_name} "
+                            "provider is currently unavailable."
+                        ),
+                    )
+
+                    continue
+
+            except Exception:
+
+                logger.exception(
+                    "Health check failed for provider %s.",
+                    provider.provider_name,
+                )
+
+                last_response = self._error_response(
+                    "HEALTH_CHECK_FAILED",
+                    (
+                        f"{provider.provider_name} "
+                        "provider health check failed."
+                    ),
+                )
+
+                continue
 
             try:
 
@@ -75,19 +130,25 @@ class AIService:
                     provider.provider_name,
                 )
 
-                review = {
-                    "success": False,
-                    "error": "PROVIDER_EXCEPTION",
-                }
+                review = self._error_response(
+                    "PROVIDER_EXCEPTION",
+                    (
+                        f"{provider.provider_name} "
+                        "provider raised an unexpected exception."
+                    ),
+                )
 
             if not isinstance(
                 review,
                 dict,
             ):
-                review = {
-                    "success": False,
-                    "error": "INVALID_RESPONSE",
-                }
+                review = self._error_response(
+                    "INVALID_RESPONSE",
+                    (
+                        f"{provider.provider_name} "
+                        "returned an invalid response."
+                    ),
+                )
 
             review["provider"] = (
                 provider.provider_name
@@ -113,7 +174,13 @@ class AIService:
             if review.get("error") != "RATE_LIMIT":
                 break
 
-        return last_response
+        if last_response is not None:
+            return last_response
+
+        return self._error_response(
+            "ALL_PROVIDERS_FAILED",
+            "All configured AI providers failed.",
+        )
 
     def review_code(
         self,
