@@ -524,7 +524,7 @@ Cache Size: {cache_stats["cache_size"]}
                 repository=f"{settings.GITHUB_OWNER}/{settings.GITHUB_REPOSITORY}",
                 pull_request=pull_number,
                 quality_score=quality["score"],
-                provider="Groq",
+                provider=review["provider"],
                 review_duration=review_duration,
                 total_files=files_reviewed,
                 total_issues=total_issues,

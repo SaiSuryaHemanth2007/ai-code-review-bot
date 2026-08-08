@@ -105,7 +105,6 @@ class AIService:
             )
 
             try:
-
                 review = provider.review_code(
                     content,
                     language,
