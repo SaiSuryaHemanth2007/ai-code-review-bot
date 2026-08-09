@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from backend.services.history_service import history_service
 
+
 router = APIRouter(
     prefix="/history",
     tags=["Review History"],
@@ -12,6 +13,12 @@ router = APIRouter(
 def get_all_reviews():
     """Get all saved reviews."""
     return history_service.get_all_reviews()
+
+
+@router.get("/statistics")
+def get_statistics():
+    """Get review statistics."""
+    return history_service.get_statistics()
 
 
 @router.get("/{review_id}")
@@ -42,9 +49,3 @@ def delete_review(review_id: int):
     return {
         "message": "Review deleted successfully"
     }
-
-
-@router.get("/statistics")
-def get_statistics():
-    """Get review statistics."""
-    return history_service.get_statistics()
