@@ -6,10 +6,13 @@ from backend.services.review_service import ReviewService
 
 
 @pytest.fixture(autouse=True)
-def mock_history_save():
+def mock_external_dependencies():
     with patch(
         "backend.services.review_service.history_service.save_review",
         return_value=1,
+    ), patch(
+        "backend.services.review_service.github_service.upsert_pull_request_comment",
+        return_value=None,
     ):
         yield
 
