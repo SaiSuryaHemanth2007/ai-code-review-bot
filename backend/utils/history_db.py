@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional
 
 
@@ -77,7 +77,7 @@ class HistoryDatabase:
                     total_files,
                     total_issues,
                     json.dumps(review_data, default=str),
-                    datetime.utcnow().isoformat()
+                    datetime.now(UTC).isoformat()
                 )
             )
             conn.commit()
