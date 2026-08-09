@@ -18,8 +18,8 @@ DB_PATH = DB_DIR / "review_cache.db"
 class CacheDatabase:
     """SQLite wrapper for persistent review cache."""
 
-    def __init__(self):
-        self.db_path = DB_PATH
+    def __init__(self, db_path=None):
+        self.db_path = db_path or DB_PATH
         self._initialize_database()
 
     def _get_connection(self):

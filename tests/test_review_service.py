@@ -1,7 +1,17 @@
+import pytest
+
 from unittest.mock import patch
 
 from backend.services.review_service import ReviewService
 
+
+@pytest.fixture(autouse=True)
+def mock_history_save():
+    with patch(
+        "backend.services.review_service.history_service.save_review",
+        return_value=1,
+    ):
+        yield
 
 def test_review_file_calls_ai_on_cache_miss():
     service = ReviewService()

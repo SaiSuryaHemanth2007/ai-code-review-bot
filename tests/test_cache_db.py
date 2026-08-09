@@ -1,7 +1,10 @@
-from backend.utils.cache_db import cache_db
+from backend.utils.cache_db import CacheDatabase
 
 
-def test_store_and_get_review():
+def test_store_and_get_review(tmp_path):
+    db = CacheDatabase(
+        tmp_path / "test_cache.db"
+    )
 
     key = "pytest-review"
 
@@ -10,21 +13,24 @@ def test_store_and_get_review():
         "issues": [],
     }
 
-    cache_db.store_review(
+    db.store_review(
         key,
         review,
     )
 
-    cached = cache_db.get_review(key)
+    cached = db.get_review(key)
 
     assert cached == review
 
 
-def test_delete_review():
+def test_delete_review(tmp_path):
+    db = CacheDatabase(
+        tmp_path / "test_cache.db"
+    )
 
     key = "pytest-delete"
 
-    cache_db.store_review(
+    db.store_review(
         key,
         {
             "summary": "Delete",
@@ -32,6 +38,6 @@ def test_delete_review():
         },
     )
 
-    cache_db.delete_review(key)
+    db.delete_review(key)
 
-    assert cache_db.get_review(key) is None
+    assert db.get_review(key) is None
