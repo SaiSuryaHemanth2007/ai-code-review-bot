@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Application
     APP_NAME: str = "AI Code Review Bot"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     # Groq
     GROQ_API_KEY: str = ""

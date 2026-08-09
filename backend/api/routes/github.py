@@ -8,6 +8,7 @@ from backend.services.github_service import github_service
 from backend.services.review_service import review_service
 from backend.utils.review_cache import get_cache_statistics
 
+
 router = APIRouter()
 
 
@@ -39,8 +40,6 @@ async def debug() -> dict:
         )
 
     return {
-        "github_token_exists": bool(settings.GITHUB_TOKEN),
-        "github_token_length": len(settings.GITHUB_TOKEN),
         "github_owner": settings.GITHUB_OWNER,
         "github_repository": settings.GITHUB_REPOSITORY,
     }

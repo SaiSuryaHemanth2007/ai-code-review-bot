@@ -53,12 +53,12 @@ def test_debug_endpoint_returns_environment_information():
 
     data = response.json()
 
-    assert data["github_token_exists"] is True
-    assert data["github_token_length"] == len(
-        "test-token"
-    )
     assert data["github_owner"] == "test-owner"
     assert data["github_repository"] == "test-repo"
+
+    # Secret information must not be exposed.
+    assert "github_token_exists" not in data
+    assert "github_token_length" not in data
 
 
 def test_debug_endpoint_returns_404_when_debug_disabled():
