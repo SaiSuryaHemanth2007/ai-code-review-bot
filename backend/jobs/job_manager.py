@@ -1,6 +1,6 @@
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Optional
 
 from backend.core.logger import logger
@@ -34,7 +34,7 @@ class JobManager:
             "progress": 0,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "started_at": None,
             "completed_at": None,
         }
@@ -64,7 +64,7 @@ class JobManager:
 
             self.jobs[job_id]["status"] = "running"
             self.jobs[job_id]["started_at"] = (
-                datetime.utcnow().isoformat()
+                datetime.now(UTC).isoformat()
             )
 
         logger.info(
@@ -111,7 +111,7 @@ class JobManager:
             self.jobs[job_id]["progress"] = 100
             self.jobs[job_id]["result"] = result
             self.jobs[job_id]["completed_at"] = (
-                datetime.utcnow().isoformat()
+                datetime.now(UTC).isoformat()
             )
 
         logger.info(
@@ -136,7 +136,7 @@ class JobManager:
             self.jobs[job_id]["status"] = "failed"
             self.jobs[job_id]["error"] = error
             self.jobs[job_id]["completed_at"] = (
-                datetime.utcnow().isoformat()
+                datetime.now(UTC).isoformat()
             )
 
         logger.error(
