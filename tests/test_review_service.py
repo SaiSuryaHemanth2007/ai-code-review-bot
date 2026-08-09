@@ -528,3 +528,493 @@ def test_review_pull_request_counts_all_severity_levels():
 
     assert result["quality"]["score"] < 100
     assert len(result["issues"]) == 4
+
+def test_review_delegates_to_ai_service():
+    service = ReviewService()
+
+    with patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value={"success": True},
+    ) as mock_review:
+
+        result = service.review(
+            "print('hello')",
+            "Python",
+        )
+
+    mock_review.assert_called_once_with(
+        "print('hello')",
+        "Python",
+    )
+
+    assert result == {"success": True}
+
+
+def test_should_ignore_exact_filename():
+    service = ReviewService()
+
+    with patch(
+        "backend.services.review_service.IGNORED_FILES",
+        {"secret.env"},
+    ):
+        assert service.should_ignore_file("secret.env") is True
+
+
+def test_should_ignore_file_with_ignored_suffix():
+    service = ReviewService()
+
+    with patch(
+        "backend.services.review_service.IGNORED_SUFFIXES",
+        {".min.js"},
+    ):
+        assert service.should_ignore_file("app.min.js") is True
+
+
+def test_normalize_issue_handles_missing_file_invalid_confidence_and_category():
+    service = ReviewService()
+
+    issue = {
+        "severity": "high",
+        "confidence": "not-a-number",
+        "category": "Invalid Category",
+    }
+
+    result = service._normalize_issue(
+        issue,
+        "main.py",
+    )
+
+    assert result["file"] == "main.py"
+    assert result["severity"] == "HIGH"
+    assert result["confidence"] == 50
+    assert result["category"] == "Best Practices"
+
+
+def test_normalize_issue_clamps_confidence():
+    service = ReviewService()
+
+    low_issue = {
+        "confidence": -50,
+    }
+
+    high_issue = {
+        "confidence": 500,
+    }
+
+    low_result = service._normalize_issue(
+        low_issue,
+        "main.py",
+    )
+
+    high_result = service._normalize_issue(
+        high_issue,
+        "main.py",
+    )
+
+    assert low_result["confidence"] == 0
+    assert high_result["confidence"] == 100
+
+
+def test_review_pull_request_filters_false_positive_issue():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "summary": "Review completed.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "LOW",
+                "category": "Performance",
+                "confidence": 60,
+                "comment": (
+                    "This function could be simplified "
+                    "using the built-in sum function."
+                ),
+                "suggestion": "Use sum().",
+            }
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+    ) as mock_inline:
+
+        result = service.review_pull_request(1)
+
+    assert result["issues"] == []
+    assert result["statistics"]["total_issues"] == 0
+    mock_inline.assert_not_called()
+
+
+def test_review_pull_request_handles_file_review_exception():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.ReviewService.review_file",
+        side_effect=RuntimeError("review failed"),
+    ):
+
+        result = service.review_pull_request(1)
+
+    assert result["statistics"]["ai_failures"] == 1
+    assert result["statistics"]["files_reviewed"] == 1
+
+
+def test_review_pull_request_skips_invalid_inline_issue():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "summary": "Invalid issue.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 0,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Security issue.",
+            }
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+    ) as mock_inline:
+
+        result = service.review_pull_request(1)
+
+    assert len(result["issues"]) == 1
+    mock_inline.assert_not_called()
+
+
+def test_review_pull_request_handles_inline_comment_failure():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "summary": "Security issue.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Security issue.",
+            }
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+        side_effect=RuntimeError("GitHub failed"),
+    ), patch(
+        "backend.services.review_service.github_service.upsert_pull_request_comment",
+    ):
+
+        result = service.review_pull_request(1)
+
+    assert len(result["issues"]) == 1
+    assert result["statistics"]["total_issues"] == 1
+
+def test_review_pull_request_returns_looks_good_verdict():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "provider": "Groq",
+        "summary": "Minor issues found.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+    ), patch(
+        "backend.services.review_service.github_service.upsert_pull_request_comment",
+    ):
+
+        result = service.review_pull_request(1)
+
+    assert result["verdict"] == "✅ Looks Good"
+
+
+def test_review_pull_request_returns_review_required_verdict():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "provider": "Groq",
+        "summary": "Serious issue.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+    ), patch(
+        "backend.services.review_service.github_service.upsert_pull_request_comment",
+    ):
+
+        result = service.review_pull_request(1)
+
+    assert result["verdict"] == "⚠️ Review Required"
+
+
+def test_review_pull_request_returns_needs_improvement_verdict():
+    service = ReviewService()
+
+    files = [
+        {
+            "filename": "main.py",
+            "patch": (
+                "@@ -1,1 +1,1 @@\n"
+                "-old\n"
+                "+new"
+            ),
+        }
+    ]
+
+    review = {
+        "success": True,
+        "provider": "Groq",
+        "summary": "Critical issue.",
+        "issues": [
+            {
+                "file": "main.py",
+                "line": 1,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 2,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 3,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 4,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 5,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+            {
+                "file": "main.py",
+                "line": 6,
+                "severity": "HIGH",
+                "category": "Security",
+                "confidence": 90,
+                "comment": "Potential security issue.",
+            },
+        ],
+    }
+
+    with patch(
+        "backend.services.review_service.github_service.get_pull_request_files",
+        return_value=files,
+    ), patch(
+        "backend.services.review_service.get_cached_review",
+        return_value=None,
+    ), patch(
+        "backend.services.review_service.ai_service.review_code",
+        return_value=review,
+    ), patch(
+        "backend.services.review_service.store_review",
+    ), patch(
+        "backend.services.review_service.github_service.create_inline_review_comment",
+    ), patch(
+        "backend.services.review_service.github_service.upsert_pull_request_comment",
+    ):
+
+        result = service.review_pull_request(1)
+
+    assert result["verdict"] == "❌ Changes Required"

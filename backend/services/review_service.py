@@ -643,6 +643,7 @@ Cache Size: {cache_stats["cache_size"]}
             "recommendations": recommendations,
             "summary": report,
             "issues": issues,
+            "verdict": verdict,
         }
 
 

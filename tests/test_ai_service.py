@@ -303,3 +303,99 @@ def test_invalid_json_provider_falls_back_to_next_provider():
 
     assert result["success"] is True
     assert result["provider"] == "Groq"
+
+def test_no_providers_configured_returns_error():
+    service = AIService()
+    service.providers = []
+
+    result = service.review_code(
+        "print('hello')",
+        "python",
+    )
+
+    assert result["success"] is False
+    assert result["error"] == "NO_PROVIDER_AVAILABLE"
+    assert result["issues"] == []
+
+def test_health_check_exception_skips_provider():
+    first = create_provider(
+        name="FailingHealthProvider",
+    )
+
+    first.health_check.side_effect = Exception(
+        "Health check failed"
+    )
+
+    second = create_provider(
+        name="HealthyProvider",
+        healthy=True,
+        review={
+            "success": True,
+            "summary": "Fallback review.",
+            "issues": [],
+        },
+    )
+
+    service = AIService()
+    service.providers = [
+        first,
+        second,
+    ]
+
+    result = service.review_code(
+        "print('hello')",
+        "python",
+    )
+
+    first.health_check.assert_called_once()
+    first.review_code.assert_not_called()
+
+    second.health_check.assert_called_once()
+    second.review_code.assert_called_once()
+
+    assert result["success"] is True
+    assert result["provider"] == "HealthyProvider"
+
+def test_review_inline_uses_inline_prompt():
+    provider = create_provider(
+        name="TestProvider",
+    )
+
+    service = AIService()
+    service.providers = [provider]
+
+    result = service.review_inline(
+        "print('hello')",
+        "python",
+    )
+
+    provider.health_check.assert_called_once()
+    provider.review_code.assert_called_once()
+
+    called_content = provider.review_code.call_args.args[0]
+
+    assert "print('hello')" in called_content
+    assert result["success"] is True
+    assert result["provider"] == "TestProvider"
+
+def test_available_providers_returns_provider_names():
+    first = create_provider(
+        name="Gemini",
+    )
+
+    second = create_provider(
+        name="Groq",
+    )
+
+    service = AIService()
+    service.providers = [
+        first,
+        second,
+    ]
+
+    result = service.available_providers()
+
+    assert result == [
+        "Gemini",
+        "Groq",
+    ]

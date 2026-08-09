@@ -20,3 +20,34 @@ def test_metrics_endpoint():
 
     assert "Groq" in data["providers"]
     assert "Gemini" in data["providers"]
+
+from unittest.mock import patch
+
+from backend.services.metrics_service import MetricsService
+
+
+def test_get_metrics_calculates_cache_hit_rate():
+    service = MetricsService()
+
+    with patch(
+        "backend.services.metrics_service.cache_db.get_total_reviews",
+        return_value=20,
+    ), patch(
+        "backend.services.metrics_service.cache_db.get_cached_reviews",
+        return_value=5,
+    ), patch(
+        "backend.services.metrics_service.groq_provider.health_check",
+        return_value=True,
+    ), patch(
+        "backend.services.metrics_service.gemini_provider.health_check",
+        return_value=False,
+    ):
+
+        result = service.get_metrics()
+
+    assert result.total_reviews == 20
+    assert result.cached_reviews == 5
+    assert result.cache_hit_rate == 25.0
+    assert result.providers.Groq == "available"
+    assert result.providers.Gemini == "unavailable"
+

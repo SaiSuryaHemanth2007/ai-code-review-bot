@@ -328,3 +328,28 @@ def test_get_review_job_returns_404_for_missing_job():
     mock_get_job.assert_called_once_with(
         "does-not-exist"
     )
+
+def test_start_review_handles_job_creation_failure():
+    with patch(
+        "backend.api.routes.review.settings.GITHUB_OWNER",
+        "test-owner",
+    ), patch(
+        "backend.api.routes.review.settings.GITHUB_REPOSITORY",
+        "test-repo",
+    ), patch(
+        "backend.api.routes.review.job_manager.create_job",
+        side_effect=Exception("Database failure"),
+    ):
+
+        response = client.post(
+            "/api/v1/review/start",
+            params={"pull_number": 42},
+        )
+
+    assert response.status_code == 500
+
+    data = response.json()
+
+    assert data["success"] is False
+    assert data["error"] == "HTTP Error"
+    assert data["message"] == "Failed to create review job."
