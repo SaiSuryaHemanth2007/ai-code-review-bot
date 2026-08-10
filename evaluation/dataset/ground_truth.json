@@ -1,0 +1,167 @@
+{
+  "version": "1.0",
+  "description": "Ground-truth benchmark for AI Code Review Bot Phase 1 evaluation",
+  "cases": [
+    {
+      "id": "SEC-001",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "CRITICAL",
+      "description": "Hardcoded API key"
+    },
+    {
+      "id": "SEC-002",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "CRITICAL",
+      "description": "Command execution using os.system with user-controlled input"
+    },
+    {
+      "id": "SEC-003",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "CRITICAL",
+      "description": "Dynamic Python execution using eval on user input"
+    },
+    {
+      "id": "SEC-004",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "HIGH",
+      "description": "Path traversal risk from unsanitized filename"
+    },
+    {
+      "id": "SEC-005",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "HIGH",
+      "description": "Command injection risk from subprocess with shell=True"
+    },
+    {
+      "id": "SEC-006",
+      "file": "security_cases.py",
+      "category": "Security",
+      "expected": true,
+      "severity": "CRITICAL",
+      "description": "Hardcoded administrator credentials"
+    },
+
+    {
+      "id": "SAFE-001",
+      "file": "safe_patterns.py",
+      "category": "Security",
+      "expected": false,
+      "description": "API key loaded from environment variable"
+    },
+    {
+      "id": "SAFE-002",
+      "file": "safe_patterns.py",
+      "category": "Security",
+      "expected": false,
+      "description": "Command execution uses an allowlist and shell=False"
+    },
+    {
+      "id": "SAFE-003",
+      "file": "safe_patterns.py",
+      "category": "Security",
+      "expected": false,
+      "description": "Parameterized SQL query"
+    },
+    {
+      "id": "SAFE-004",
+      "file": "safe_patterns.py",
+      "category": "Security",
+      "expected": false,
+      "description": "File path is validated against the allowed base directory"
+    },
+    {
+      "id": "SAFE-005",
+      "file": "safe_patterns.py",
+      "category": "Security",
+      "expected": false,
+      "description": "Password verification delegated to verify_password"
+    },
+
+    {
+      "id": "COR-001",
+      "file": "correctness_cases.py",
+      "category": "Correctness",
+      "expected": false,
+      "description": "Average calculation using built-in sum"
+    },
+    {
+      "id": "COR-002",
+      "file": "correctness_cases.py",
+      "category": "Correctness",
+      "expected": true,
+      "severity": "MEDIUM",
+      "description": "Division by zero is possible when count is zero"
+    },
+    {
+      "id": "COR-003",
+      "file": "correctness_cases.py",
+      "category": "Correctness",
+      "expected": false,
+      "description": "User lookup by ID"
+    },
+    {
+      "id": "COR-004",
+      "file": "correctness_cases.py",
+      "category": "Correctness",
+      "expected": false,
+      "description": "Balance update operation"
+    },
+    {
+      "id": "COR-005",
+      "file": "correctness_cases.py",
+      "category": "Correctness",
+      "expected": true,
+      "severity": "MEDIUM",
+      "description": "Mutable default argument can retain state across function calls"
+    },
+
+    {
+      "id": "MAINT-001",
+      "file": "maintainability_cases.py",
+      "category": "Maintainability",
+      "expected": false,
+      "description": "Simple admin lookup helper"
+    },
+    {
+      "id": "MAINT-002",
+      "file": "maintainability_cases.py",
+      "category": "Maintainability",
+      "expected": false,
+      "description": "Simple manager lookup helper"
+    },
+    {
+      "id": "MAINT-003",
+      "file": "maintainability_cases.py",
+      "category": "Maintainability",
+      "expected": true,
+      "severity": "LOW",
+      "description": "Deeply nested conditional logic reduces readability"
+    },
+    {
+        "id": "MAINT-004",
+        "file": "maintainability_cases.py",
+        "category": "Maintainability",
+        "expected": true,
+        "severity": "LOW",
+        "description": "Debug print statement remains in production-style code"
+    },
+    {
+        "id": "MAINT-005",
+        "file": "maintainability_cases.py",
+        "category": "Maintainability",
+        "expected": true,
+        "severity": "LOW",
+        "description": "Temporary debug variable remains in production-style code"
+    }
+  ]
+}
