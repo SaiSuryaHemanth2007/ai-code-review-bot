@@ -59,6 +59,8 @@ IMPORTANT RULES
 
 20. Do not report stylistic preferences as issues unless they violate an explicitly requested coding standard or create a meaningful readability or maintainability problem.
 
+20A. When Maintainability is an enabled review category, check for concrete maintainability problems including deeply nested control flow, leftover debug print statements, and temporary debug variables. Report these only when the provided code clearly demonstrates that they are production-code artifacts or materially reduce readability. Do not report normal intermediate variables, simple conditionals, intentional output, or ordinary helper functions.
+
 21. Before reporting an issue, verify that the issue represents a concrete problem in the provided code.
 
 22. Prefer fewer high-confidence issues over many speculative or low-impact issues.
