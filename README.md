@@ -175,7 +175,7 @@ GITHUB_OWNER=your_username
 GITHUB_REPOSITORY=repository_name
 
 GROQ_API_KEY=your_groq_key
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 
 GEMINI_API_KEY=your_gemini_key
 
